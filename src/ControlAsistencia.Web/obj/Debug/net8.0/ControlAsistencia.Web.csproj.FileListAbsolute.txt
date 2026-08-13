@@ -115,3 +115,4 @@ D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\r
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.pdb
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.genruntimeconfig.cache
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ref\ControlAsistencia.Web.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.sourcelink.json
