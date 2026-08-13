@@ -1,0 +1,53 @@
+@model ControlAsistencia.Web.Models.DeleteEmpleadoViewModel
+
+@{
+    ViewData["Title"] = "Eliminar empleado";
+}
+
+<div class="card shadow-sm border-danger">
+    <div class="card-header bg-danger text-white"><h1 class="h4 mb-0">Confirmar eliminación</h1></div>
+    <div class="card-body">
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="alert alert-warning">Revise la información antes de confirmar la eliminación.</div>
+
+        <div class="row g-3">
+            <div class="col-md-4"><strong>Código:</strong><br />@Model.Empleado.BadgeNumber</div>
+            <div class="col-md-4"><strong>DNI:</strong><br />@Model.Empleado.Ssn</div>
+            <div class="col-md-4"><strong>Nombre:</strong><br />@Model.Empleado.Name</div>
+            <div class="col-md-4"><strong>Género:</strong><br />@Model.Empleado.Gender</div>
+            <div class="col-md-4"><strong>Sueldo:</strong><br />@Model.Empleado.Title</div>
+            <div class="col-md-4"><strong>No. Móvil:</strong><br />@Model.Empleado.Pager</div>
+            <div class="col-md-4"><strong>Fecha Nac.:</strong><br />@Model.Empleado.Birthday?.ToString("yyyy-MM-dd")</div>
+            <div class="col-md-4"><strong>Fecha Contrato:</strong><br />@Model.Empleado.HiredDay?.ToString("yyyy-MM-dd")</div>
+            <div class="col-md-4"><strong>Dirección:</strong><br />@Model.Empleado.Street</div>
+            <div class="col-md-4"><strong>Telf. Oficina:</strong><br />@Model.Empleado.OPhone</div>
+            <div class="col-md-4"><strong>Área/Ubic.:</strong><br />@Model.Empleado.DepartmentName</div>
+            <div class="col-md-4"><strong>Nacionalidad:</strong><br />@Model.Empleado.Minzu</div>
+            <div class="col-md-4"><strong>Clave Equipo:</strong><br />@Model.Empleado.MVerifyPass</div>
+            <div class="col-md-4"><strong>Perfil Equipo:</strong><br />@Model.Empleado.PrivilegeDescription</div>
+            <div class="col-md-4"><strong>No. Tarjeta:</strong><br />@Model.Empleado.CardNo</div>
+            <div class="col-12">
+                <strong>Fotografía:</strong><br />
+                @if (!string.IsNullOrWhiteSpace(Model.Empleado.PhotoBase64))
+                {
+                    <img src="@Model.Empleado.PhotoBase64" alt="Fotografía" class="img-thumbnail mt-2" style="max-height: 180px;" />
+                }
+                else
+                {
+                    <span class="text-muted">Sin fotografía registrada.</span>
+                }
+            </div>
+        </div>
+
+        <form asp-action="DeleteConfirmed" method="post" class="mt-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="userId" value="@Model.Empleado.UserId" />
+            <button type="submit" class="btn btn-danger">Confirmar eliminación</button>
+            <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>

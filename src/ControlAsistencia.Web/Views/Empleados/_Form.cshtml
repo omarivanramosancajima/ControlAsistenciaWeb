@@ -1,0 +1,223 @@
+@model ControlAsistencia.Web.Models.EmpleadoFormViewModel
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <label asp-for="BadgeNumber" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="BadgeNumber" class="form-control" maxlength="24" />
+        <span asp-validation-for="BadgeNumber" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Ssn" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="Ssn" class="form-control" maxlength="20" />
+        <span asp-validation-for="Ssn" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Name" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="Name" class="form-control" maxlength="24" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="Gender" class="form-label"></label> <span class="text-danger">*</span>
+        <select asp-for="Gender" asp-items="Model.GenderOptions" class="form-select">
+            <option value="">Seleccione</option>
+        </select>
+        <span asp-validation-for="Gender" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" maxlength="20" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Pager" class="form-label"></label>
+        <input asp-for="Pager" class="form-control" maxlength="20" />
+        <span asp-validation-for="Pager" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="Birthday" class="form-label"></label>
+        <input asp-for="Birthday" class="form-control" type="date" />
+        <span asp-validation-for="Birthday" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="HiredDay" class="form-label"></label>
+        <input asp-for="HiredDay" class="form-control" type="date" />
+        <span asp-validation-for="HiredDay" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="OPhone" class="form-label"></label>
+        <input asp-for="OPhone" class="form-control" maxlength="20" />
+        <span asp-validation-for="OPhone" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Street" class="form-label"></label>
+        <input asp-for="Street" class="form-control" maxlength="80" />
+        <span asp-validation-for="Street" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-8">
+        <label asp-for="DefaultDeptId" class="form-label"></label> <span class="text-danger">*</span>
+        <div class="input-group">
+            <input type="text" id="DepartmentName" class="form-control" value="@Model.DepartmentName" readonly />
+            <input asp-for="DefaultDeptId" type="hidden" />
+            <button type="button" class="btn btn-outline-secondary" id="openDepartmentPopup">Seleccionar</button>
+        </div>
+        <span asp-validation-for="DefaultDeptId" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Minzu" class="form-label"></label>
+        <input asp-for="Minzu" class="form-control" maxlength="8" />
+        <span asp-validation-for="Minzu" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="MVerifyPass" class="form-label"></label>
+        <input asp-for="MVerifyPass" class="form-control" maxlength="10" />
+        <span asp-validation-for="MVerifyPass" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Privilege" class="form-label"></label> <span class="text-danger">*</span>
+        <select asp-for="Privilege" asp-items="Model.PrivilegeOptions" class="form-select">
+            <option value="">Seleccione</option>
+        </select>
+        <span asp-validation-for="Privilege" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="CardNo" class="form-label"></label>
+        <input asp-for="CardNo" class="form-control" maxlength="20" />
+        <span asp-validation-for="CardNo" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="PhotoFile" class="form-label"></label>
+        <input asp-for="PhotoFile" class="form-control" type="file" accept="image/*" />
+        <span asp-validation-for="PhotoFile" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Fotografía actual</label>
+        <div class="border rounded p-2 text-center bg-light">
+            @if (!string.IsNullOrWhiteSpace(Model.CurrentPhotoBase64))
+            {
+                <img src="@Model.CurrentPhotoBase64" alt="Fotografía" class="img-fluid rounded" style="max-height: 180px;" />
+            }
+            else
+            {
+                <span class="text-muted">Sin fotografía registrada.</span>
+            }
+        </div>
+    </div>
+</div>
+
+<div id="departmentModalContainer"></div>
+
+<script>
+    window.initializeDepartmentPopup = function () {
+        const popupUrl = '@Url.Action("DepartmentsPopup", "Empleados")';
+        const createDeptUrl = '@Url.Action("CreateDepartment", "Empleados")';
+        const openButton = document.getElementById('openDepartmentPopup');
+
+        if (!openButton || openButton.dataset.bound === 'true') {
+            return;
+        }
+
+        openButton.dataset.bound = 'true';
+        openButton.addEventListener('click', async function () {
+            const response = await fetch(popupUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const html = await response.text();
+            const container = document.getElementById('departmentModalContainer');
+            container.innerHTML = html;
+
+            const modalElement = document.getElementById('departmentsModal');
+            const modal = new bootstrap.Modal(modalElement);
+            bindDepartmentEvents(modal, createDeptUrl);
+            modal.show();
+        });
+    };
+
+    function bindDepartmentEvents(modal, createDeptUrl) {
+        document.querySelectorAll('.department-option').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('DefaultDeptId').value = this.dataset.deptId;
+                document.getElementById('DepartmentName').value = this.dataset.deptName;
+                modal.hide();
+            }, { once: true });
+        });
+
+        const form = document.getElementById('createDepartmentForm');
+        if (!form || form.dataset.bound === 'true') {
+            return;
+        }
+
+        form.dataset.bound = 'true';
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(form);
+            const response = await fetch(createDeptUrl, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const result = await response.json();
+            const messageContainer = document.getElementById('departmentPopupMessage');
+
+            if (!result.success) {
+                messageContainer.className = 'small mt-3 text-danger';
+                messageContainer.textContent = result.message;
+                return;
+            }
+
+            messageContainer.className = 'small mt-3 text-success';
+            messageContainer.textContent = result.message;
+
+            const currentName = formData.get('deptName');
+            const currentParent = String(formData.get('supDeptId'));
+            refreshDepartmentCollections(result.departments, currentName);
+            document.getElementById('parentDeptId').value = currentParent;
+            bindDepartmentEvents(modal, createDeptUrl);
+            document.getElementById('newDeptName').value = '';
+        });
+    }
+
+    function refreshDepartmentCollections(departments, createdName) {
+        const departmentList = document.getElementById('departmentList');
+        const parentSelect = document.getElementById('parentDeptId');
+        departmentList.innerHTML = '';
+        parentSelect.innerHTML = '';
+
+        let selectedItem = null;
+
+        departments.forEach(item => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-group-item list-group-item-action department-option';
+            button.dataset.deptId = item.deptId;
+            button.dataset.deptName = item.hierarchyName;
+            const span = document.createElement('span');
+            span.className = 'd-inline-block';
+            span.style.paddingLeft = `${item.level * 20}px`;
+            span.textContent = item.hierarchyName;
+            button.appendChild(span);
+            departmentList.appendChild(button);
+
+            const option = document.createElement('option');
+            option.value = item.deptId;
+            option.textContent = item.hierarchyName;
+            parentSelect.appendChild(option);
+
+            if (createdName && item.deptName === createdName) {
+                selectedItem = item;
+            }
+        });
+
+        if (selectedItem) {
+            document.getElementById('DefaultDeptId').value = selectedItem.deptId;
+            document.getElementById('DepartmentName').value = selectedItem.hierarchyName;
+        }
+    }
+
+    window.initializeDepartmentPopup();
+</script>

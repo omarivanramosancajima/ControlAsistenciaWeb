@@ -1,0 +1,61 @@
+@model IReadOnlyList<ControlAsistencia.Web.Models.DepartmentDTO>
+
+<div class="modal fade" id="departmentsModal" tabindex="-1" aria-labelledby="departmentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="departmentsModalLabel">Seleccionar área / ubicación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-4">
+                    <div class="col-md-7">
+                        <div class="card">
+                            <div class="card-header">Jerarquía de áreas</div>
+                            <div class="card-body">
+                                <div class="list-group" id="departmentList">
+                                    @foreach (var department in Model)
+                                    {
+                                        <button type="button"
+                                                class="list-group-item list-group-item-action department-option"
+                                                data-dept-id="@department.DeptId"
+                                                data-dept-name="@department.HierarchyName">
+                                            <span class="d-inline-block ps-@Math.Min(department.Level * 2, 5)">@department.HierarchyName</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header">Nueva área</div>
+                            <div class="card-body">
+                                <form id="createDepartmentForm">
+                                    @Html.AntiForgeryToken()
+                                    <div class="mb-3">
+                                        <label class="form-label" for="newDeptName">Nombre del área</label>
+                                        <input type="text" id="newDeptName" name="deptName" class="form-control" maxlength="30" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="parentDeptId">Área padre</label>
+                                        <select id="parentDeptId" name="supDeptId" class="form-select">
+                                            @foreach (var department in Model)
+                                            {
+                                                <option value="@department.DeptId">@department.HierarchyName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary">Crear área</button>
+                                    </div>
+                                </form>
+                                <div id="departmentPopupMessage" class="small mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

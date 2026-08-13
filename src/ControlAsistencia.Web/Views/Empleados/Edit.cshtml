@@ -1,0 +1,25 @@
+@model ControlAsistencia.Web.Models.EmpleadoFormViewModel
+
+@{
+    ViewData["Title"] = "Editar empleado";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header"><h1 class="h4 mb-0">Editar empleado</h1></div>
+    <div class="card-body">
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <form asp-action="Edit" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <input asp-for="UserId" type="hidden" />
+            <partial name="_Form" model="Model" />
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
