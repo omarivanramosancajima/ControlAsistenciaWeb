@@ -1,0 +1,51 @@
+@model ControlAsistencia.Web.Models.TurnoAsignacionDetalleViewModel
+
+<div class="border rounded p-3 h-100 d-flex flex-column">
+    <div class="mb-3">
+        <h2 class="h5 mb-1">@Model.NombreTurno</h2>
+        <div class="text-muted small">@Model.FrecuenciaTexto · Ciclo @Model.Cyle</div>
+    </div>
+    <div class="overflow-auto" style="max-height: 32rem;">
+        <div class="list-group">
+            @foreach (var dia in Model.Dias)
+            {
+                var backgroundColor = GetColor(dia.Color);
+                var textClass = dia.IsAssigned && dia.Color == 16715535 ? "text-white" : string.Empty;
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap rounded p-2 @(dia.IsAssigned ? string.Empty : "bg-light")" style="@(dia.IsAssigned ? $"background-color: {backgroundColor};" : string.Empty)">
+                        <div class="fw-semibold @textClass">@dia.DayLabel</div>
+                        @if (dia.IsAssigned)
+                        {
+                            <div class="@textClass text-end">
+                                <div class="fw-semibold">@dia.SchName</div>
+                                <div class="small">@dia.StartTime?.ToString("HH:mm") - @dia.EndTime?.ToString("HH:mm")</div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted text-end">Sin horario</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@functions {
+    private static string GetColor(int? color) => color switch
+    {
+        255 => "#ff0000",
+        65535 => "#ffff00",
+        16715535 => "#0000ff",
+        16776960 => "#00ffff",
+        65280 => "#00ff00",
+        16753920 => "#ffa500",
+        8388736 => "#800080",
+        16777215 => "#ffffff",
+        52377 => "#ccff00",
+        8388608 => "#800000",
+        11141120 => "#9932cc",
+        _ => "#cccccc"
+    };
+}

@@ -1,0 +1,109 @@
+@model ControlAsistencia.Web.Models.ProgramarTurnoModalViewModel
+
+@{
+    var initialHorarioId = Model.Dias.Where(x => x.SchClassId.HasValue)
+        .GroupBy(x => x.SchClassId!.Value)
+        .OrderByDescending(x => x.Count())
+        .Select(x => x.Key)
+        .FirstOrDefault();
+    var initialAssignments = Model.Dias.ToDictionary(x => x.DayNumber.ToString(), x => x.SchClassId ?? 0);
+}
+
+<div class="modal fade" id="assignScheduleModal" tabindex="-1" aria-labelledby="assignScheduleModalLabel" aria-hidden="true"
+     data-turno-id="@Model.NumRunId"
+     data-initial-horario-id="@initialHorarioId"
+     data-initial-assignments='@System.Text.Json.JsonSerializer.Serialize(initialAssignments)'>
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignScheduleModalLabel">ASIGNAR HORARIO A "@Model.NombreTurno" (@Model.FrecuenciaTexto)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                @Html.AntiForgeryToken()
+                <div id="assignModalMessage" class="alert alert-danger d-none"></div>
+                <div class="row g-3">
+                    <div class="col-12 col-lg-6">
+                        <div class="border rounded p-3 h-100 d-flex flex-column">
+                            <h6 class="mb-3">Horarios</h6>
+                            <div class="overflow-auto" style="max-height: 24rem;">
+                                <div class="list-group">
+                                    @foreach (var horario in Model.Horarios)
+                                    {
+                                        <label class="list-group-item list-group-item-action">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="selectedHorario" value="@horario.SchClassId" />
+                                                <span class="form-check-label d-block">
+                                                    <span class="d-inline-block rounded border me-2 align-middle" style="width: 18px; height: 18px; background-color: @GetColor(horario.Color);"></span>
+                                                    <span class="fw-semibold">@horario.SchName</span>
+                                                    <span class="d-block small text-muted ms-4">@horario.StartTime?.ToString("HH:mm") - @horario.EndTime?.ToString("HH:mm")</span>
+                                                </span>
+                                            </div>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        <div class="border rounded p-3 h-100 d-flex flex-column">
+                            <h6 class="mb-3">Días</h6>
+                            <div class="overflow-auto" style="max-height: 24rem;">
+                                <div class="list-group mb-3">
+                                    @foreach (var dia in Model.Dias)
+                                    {
+                                        <label class="list-group-item list-group-item-action">
+                                            <div class="form-check d-flex justify-content-between align-items-center gap-3">
+                                                <div>
+                                                    <input class="form-check-input day-checkbox" type="checkbox" value="@dia.DayNumber" id="day_@dia.DayNumber" />
+                                                    <span class="form-check-label ms-2" for="day_@dia.DayNumber">@dia.DayLabel</span>
+                                                </div>
+                                                <div class="small text-end">
+                                                    @if (dia.IsAssigned)
+                                                    {
+                                                        <span class="fw-semibold">@dia.SchName</span>
+                                                        <span class="d-block text-muted">@dia.StartTime?.ToString("HH:mm") - @dia.EndTime?.ToString("HH:mm")</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">Sin horario</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="selectAllDays" />
+                                <label class="form-check-label" for="selectAllDays">Seleccionar todos</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveAssignmentsButton">Grabar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    private static string GetColor(int? color) => color switch
+    {
+        255 => "#ff0000",
+        65535 => "#ffff00",
+        16715535 => "#0000ff",
+        16776960 => "#00ffff",
+        65280 => "#00ff00",
+        16753920 => "#ffa500",
+        8388736 => "#800080",
+        16777215 => "#ffffff",
+        52377 => "#ccff00",
+        8388608 => "#800000",
+        11141120 => "#9932cc",
+        _ => "#cccccc"
+    };
+}

@@ -1,0 +1,239 @@
+@model ControlAsistencia.Web.Models.ProgramarTurnoIndexViewModel
+
+@{
+    ViewData["Title"] = "Asignación de Horarios";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Asignación de Horarios</h1>
+    </div>
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Turnos</h2>
+                    </div>
+                    <div class="list-group overflow-auto" style="max-height: 28rem;" id="turnosList">
+                        @if (Model.Turnos.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">No existen turnos registrados.</div>
+                        }
+                        else
+                        {
+                            foreach (var turno in Model.Turnos)
+                            {
+                                var isSelected = Model.SelectedTurnoId == turno.NUM_RUNID;
+                                <button type="button"
+                                        class="list-group-item list-group-item-action turno-selector @(isSelected ? "active" : string.Empty)"
+                                        data-turno-id="@turno.NUM_RUNID">
+                                    <div class="fw-semibold">@turno.NAME</div>
+                                    <div class="small @(isSelected ? "text-white" : "text-muted")">
+                                        @turno.STARTDATE?.ToString("dd/MM/yyyy") - @turno.ENDDATE?.ToString("dd/MM/yyyy")
+                                    </div>
+                                    <div class="small @(isSelected ? "text-white" : "text-muted")">
+                                        @GetUnitsText(turno.UNITS) · Ciclo @turno.CYLE
+                                    </div>
+                                </button>
+                            }
+                        }
+                    </div>
+                    <div class="mt-3 d-grid">
+                        <button type="button" class="btn btn-primary" id="openAssignModal">Asignar Horario</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-8">
+                <div id="turnoDetalleContainer">
+                    @if (Model.SelectedTurno is null)
+                    {
+                        <div class="border rounded p-4 text-center text-muted h-100 d-flex align-items-center justify-content-center">
+                            Seleccione un turno para visualizar sus días y horarios asignados.
+                        </div>
+                    }
+                    else
+                    {
+                        <partial name="_TurnoDetalle" model="Model.SelectedTurno" />
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="assignModalContainer"></div>
+
+@section Scripts {
+<script>
+    (function () {
+        const detailUrlBase = '@Url.Action("TurnoDetalle", "ProgramarTurno")';
+        const modalUrlBase = '@Url.Action("AsignarHorarioModal", "ProgramarTurno")';
+        const saveUrl = '@Url.Action("GuardarAsignaciones", "ProgramarTurno")';
+        const detailContainer = document.getElementById('turnoDetalleContainer');
+        const modalContainer = document.getElementById('assignModalContainer');
+        const openAssignModalButton = document.getElementById('openAssignModal');
+        let selectedTurnoId = @(Model.SelectedTurnoId?.ToString() ?? "null");
+
+        document.querySelectorAll('.turno-selector').forEach(button => {
+            button.addEventListener('click', async function () {
+                document.querySelectorAll('.turno-selector').forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
+                selectedTurnoId = Number(this.dataset.turnoId);
+                await loadTurnoDetail(selectedTurnoId);
+            });
+        });
+
+        openAssignModalButton.addEventListener('click', async function () {
+            if (!selectedTurnoId) {
+                alert('Primero debe seleccionar un turno.');
+                return;
+            }
+
+            const response = await fetch(`${modalUrlBase}?turnoId=${selectedTurnoId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) {
+                alert('No fue posible cargar la asignación de horarios.');
+                return;
+            }
+
+            modalContainer.innerHTML = await response.text();
+            const modalElement = document.getElementById('assignScheduleModal');
+            const modal = new bootstrap.Modal(modalElement);
+            bindAssignModalEvents(modal, saveUrl);
+            modal.show();
+        });
+
+        async function loadTurnoDetail(turnoId) {
+            const response = await fetch(`${detailUrlBase}?turnoId=${turnoId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) {
+                detailContainer.innerHTML = '<div class="alert alert-danger mb-0">No fue posible cargar el detalle del turno.</div>';
+                return;
+            }
+
+            detailContainer.innerHTML = await response.text();
+        }
+
+        function bindAssignModalEvents(modal, saveUrl) {
+            const modalElement = document.getElementById('assignScheduleModal');
+            const turnoId = Number(modalElement.dataset.turnoId);
+            const antiForgery = modalElement.querySelector('input[name="__RequestVerificationToken"]').value;
+            const horarioInputs = modalElement.querySelectorAll('input[name="selectedHorario"]');
+            const dayCheckboxes = modalElement.querySelectorAll('.day-checkbox');
+            const selectAllCheckbox = document.getElementById('selectAllDays');
+            const saveButton = document.getElementById('saveAssignmentsButton');
+            const messageBox = document.getElementById('assignModalMessage');
+            const initialAssignments = JSON.parse(modalElement.dataset.initialAssignments || '{}');
+            let currentHorarioId = Number(modalElement.dataset.initialHorarioId || 0);
+
+            if (currentHorarioId) {
+                const currentRadio = modalElement.querySelector(`input[name="selectedHorario"][value="${currentHorarioId}"]`);
+                if (currentRadio) {
+                    currentRadio.checked = true;
+                }
+            }
+
+            syncFromCurrentHorario();
+
+            horarioInputs.forEach(input => {
+                input.addEventListener('change', function () {
+                    currentHorarioId = Number(this.value);
+                    syncFromCurrentHorario();
+                });
+            });
+
+            dayCheckboxes.forEach(input => input.addEventListener('change', syncSelectAllState));
+            selectAllCheckbox.addEventListener('change', function () {
+                dayCheckboxes.forEach(input => { input.checked = this.checked; });
+            });
+
+            saveButton.addEventListener('click', async function () {
+                if (!turnoId) {
+                    showMessage('Debe existir un turno seleccionado.', false);
+                    return;
+                }
+
+                if (!currentHorarioId) {
+                    showMessage('Debe seleccionar un horario para continuar.', false);
+                    return;
+                }
+
+                const selectedDays = Array.from(dayCheckboxes).filter(x => x.checked).map(x => Number(x.value));
+                const relatedDays = Object.keys(initialAssignments)
+                    .filter(key => Number(initialAssignments[key]) === currentHorarioId)
+                    .map(Number);
+                const unselectedDays = relatedDays.filter(day => !selectedDays.includes(day));
+
+                const selectedSet = new Set(selectedDays);
+                const relatedSet = new Set(relatedDays);
+                const hasNewSelected = selectedDays.some(day => initialAssignments[String(day)] !== currentHorarioId);
+                const hasRemoved = unselectedDays.length > 0;
+
+                if (!hasNewSelected && !hasRemoved) {
+                    showMessage('Debe existir al menos una modificación para guardar.', false);
+                    return;
+                }
+
+                const response = await fetch(saveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': antiForgery
+                    },
+                    body: JSON.stringify({
+                        numRunId: turnoId,
+                        schClassId: currentHorarioId,
+                        selectedDays: selectedDays,
+                        unselectedDays: unselectedDays
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    showMessage(result.message || 'No fue posible guardar la asignación de horarios.', false);
+                    return;
+                }
+
+                modal.hide();
+                await loadTurnoDetail(turnoId);
+            });
+
+            function syncFromCurrentHorario() {
+                dayCheckboxes.forEach(input => {
+                    input.checked = Number(initialAssignments[input.value] || 0) === currentHorarioId;
+                });
+                syncSelectAllState();
+            }
+
+            function syncSelectAllState() {
+                selectAllCheckbox.checked = dayCheckboxes.length > 0 && Array.from(dayCheckboxes).every(x => x.checked);
+            }
+
+            function showMessage(message, isSuccess) {
+                messageBox.className = isSuccess ? 'alert alert-success' : 'alert alert-danger';
+                messageBox.textContent = message;
+                messageBox.classList.remove('d-none');
+            }
+        }
+    })();
+</script>
+}
+
+@functions {
+    private static string GetUnitsText(int? units) => units switch
+    {
+        0 => "Diario",
+        1 => "Semanal",
+        2 => "Mensual",
+        3 => "Quincenal",
+        _ => string.Empty
+    };
+}

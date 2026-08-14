@@ -37,6 +37,22 @@ SELECT COUNT(1) FROM dbo.NUM_RUN WITH (NOLOCK);";
         catch (Exception ex) { throw new InvalidOperationException($"Ocurrió un error inesperado al obtener el listado de turnos.({ex.Message})", ex); }
     }
 
+    public async Task<IReadOnlyList<TurnoDTO>> GetAllForScheduleAssignmentAsync()
+    {
+        const string sql = @"
+SELECT NUM_RUNID, NAME, STARTDATE, ENDDATE, CYLE, UNITS
+FROM dbo.NUM_RUN WITH (NOLOCK)
+ORDER BY NAME ASC;";
+        try
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            var items = await connection.QueryAsync<TurnoDTO>(sql);
+            return items.ToList();
+        }
+        catch (SqlException ex) { throw new InvalidOperationException("Ocurrió un error SQL al obtener los turnos para programación.", ex); }
+        catch (Exception ex) { throw new InvalidOperationException("Ocurrió un error inesperado al obtener los turnos para programación.", ex); }
+    }
+
     public async Task<TurnoDTO?> GetByIdAsync(int numRunId)
     {
         const string sql = @"SELECT TOP (1) NUM_RUNID, OLDID, NAME, STARTDATE, ENDDATE, CYLE, UNITS FROM dbo.NUM_RUN WITH (NOLOCK) WHERE NUM_RUNID = @NumRunId;";
@@ -58,6 +74,147 @@ SELECT COUNT(1) FROM dbo.NUM_RUN WITH (NOLOCK);";
             return await connection.ExecuteScalarAsync<int>(sql, new { Name = name, ExcludeId = excludeId }) > 0;
         }
         catch (SqlException ex) { throw new InvalidOperationException("Ocurrió un error SQL al validar duplicidad de turnos.", ex); }
+    }
+
+    public async Task<IReadOnlyList<HorarioDTO>> GetHorariosForScheduleAssignmentAsync()
+    {
+        const string sql = @"
+SELECT SCHCLASSID AS SchClassid,
+       SCHNAME AS SchName,
+       STARTTIME AS StartTime,
+       ENDTIME AS EndTime,
+       COLOR AS Color
+FROM dbo.SchClass WITH (NOLOCK)
+ORDER BY SCHNAME ASC;";
+        try
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            var items = await connection.QueryAsync<HorarioDTO>(sql);
+            return items.ToList();
+        }
+        catch (SqlException ex) { throw new InvalidOperationException("Ocurrió un error SQL al obtener los horarios para programación.", ex); }
+        catch (Exception ex) { throw new InvalidOperationException("Ocurrió un error inesperado al obtener los horarios para programación.", ex); }
+    }
+
+    public async Task<IReadOnlyList<NumRunDeilAsignacionDTO>> GetAsignacionesPorTurnoAsync(int numRunId)
+    {
+        const string sql = @"
+SELECT d.NUM_RUNID,
+       d.STARTTIME,
+       d.ENDTIME,
+       d.SDAYS,
+       d.EDAYS,
+       d.SCHCLASSID,
+       d.OverTime,
+       s.SCHNAME AS SchName,
+       s.COLOR AS Color
+FROM dbo.NUM_RUN_DEIL d WITH (NOLOCK)
+LEFT JOIN dbo.SchClass s WITH (NOLOCK) ON s.SCHCLASSID = d.SCHCLASSID
+WHERE d.NUM_RUNID = @NumRunId
+ORDER BY d.SDAYS ASC;";
+        try
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            var items = await connection.QueryAsync<NumRunDeilAsignacionDTO>(sql, new { NumRunId = numRunId });
+            return items.ToList();
+        }
+        catch (SqlException ex) { throw new InvalidOperationException("Ocurrió un error SQL al obtener las asignaciones del turno.", ex); }
+        catch (Exception ex) { throw new InvalidOperationException("Ocurrió un error inesperado al obtener las asignaciones del turno.", ex); }
+    }
+
+    public async Task<OperationResult> SaveScheduleAssignmentsAsync(GuardarProgramacionTurnoRequest request, string operatorName, string machineAlias)
+    {
+        const string turnoSql = @"SELECT TOP (1) NUM_RUNID, NAME, STARTDATE, ENDDATE, CYLE, UNITS FROM dbo.NUM_RUN WITH (NOLOCK) WHERE NUM_RUNID = @NumRunId;";
+        const string horarioSql = @"
+SELECT TOP (1) SCHCLASSID AS SchClassid,
+       SCHNAME AS SchName,
+       STARTTIME AS StartTime,
+       ENDTIME AS EndTime,
+       COLOR AS Color
+FROM dbo.SchClass WITH (NOLOCK)
+WHERE SCHCLASSID = @SchClassId;";
+        const string deleteSql = @"DELETE FROM dbo.NUM_RUN_DEIL WHERE NUM_RUNID = @NumRunId AND SDAYS = @DayNumber;";
+        const string insertSql = @"
+INSERT INTO dbo.NUM_RUN_DEIL (NUM_RUNID, STARTTIME, ENDTIME, SDAYS, EDAYS, SCHCLASSID, OverTime)
+VALUES (@NumRunId, @StartTime, @EndTime, @DayNumber, @DayNumber, @SchClassId, 0);";
+        const string logSql = @"
+INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
+VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
+
+        try
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            var turno = await connection.QueryFirstOrDefaultAsync<TurnoDTO>(turnoSql, new { request.NumRunId }, transaction);
+            if (turno is null)
+            {
+                await transaction.RollbackAsync();
+                return OperationResult.Fail("El turno seleccionado no existe.");
+            }
+
+            var units = turno.UNITS ?? -1;
+            var cyle = turno.CYLE ?? 0;
+            var totalDays = TurnoCycleDayHelper.GetTotalDays(units, cyle);
+            if (totalDays <= 0)
+            {
+                await transaction.RollbackAsync();
+                return OperationResult.Fail("El turno seleccionado no tiene una configuración de frecuencia válida.");
+            }
+
+            var horario = await connection.QueryFirstOrDefaultAsync<HorarioDTO>(horarioSql, new { request.SchClassId }, transaction);
+            if (horario is null)
+            {
+                await transaction.RollbackAsync();
+                return OperationResult.Fail("El horario seleccionado no existe.");
+            }
+
+            var selectedDays = request.SelectedDays.Distinct().OrderBy(x => x).ToList();
+            var unselectedDays = request.UnselectedDays.Distinct().OrderBy(x => x).ToList();
+            var invalidDay = selectedDays.Concat(unselectedDays).FirstOrDefault(day => day < 1 || day > totalDays);
+            if (invalidDay != 0)
+            {
+                await transaction.RollbackAsync();
+                return OperationResult.Fail("Se recibió un día fuera del rango permitido para el turno seleccionado.");
+            }
+
+            foreach (var day in unselectedDays)
+            {
+                await connection.ExecuteAsync(deleteSql, new { NumRunId = request.NumRunId, DayNumber = day }, transaction);
+            }
+
+            foreach (var day in selectedDays)
+            {
+                await connection.ExecuteAsync(deleteSql, new { NumRunId = request.NumRunId, DayNumber = day }, transaction);
+                await connection.ExecuteAsync(insertSql, new
+                {
+                    NumRunId = request.NumRunId,
+                    StartTime = horario.StartTime,
+                    EndTime = horario.EndTime,
+                    DayNumber = day,
+                    SchClassId = request.SchClassId
+                }, transaction);
+            }
+
+            await connection.ExecuteAsync(logSql, new
+            {
+                Operator = operatorName,
+                MachineAlias = machineAlias,
+                LogDescr = $"Programa Turno: {turno.NAME}"
+            }, transaction);
+
+            await transaction.CommitAsync();
+            return OperationResult.Ok("Asignación de horarios guardada correctamente.");
+        }
+        catch (SqlException)
+        {
+            return OperationResult.Fail("No fue posible guardar la asignación de horarios.");
+        }
+        catch (Exception)
+        {
+            return OperationResult.Fail("No fue posible guardar la asignación de horarios.");
+        }
     }
 
     public async Task<OperationResult> CreateAsync(TurnoFormViewModel model, string operatorName, string machineAlias)
