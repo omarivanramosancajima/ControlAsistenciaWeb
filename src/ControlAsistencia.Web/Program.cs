@@ -17,6 +17,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IEmpleadoRepository, EmpleadoRepository>();
+builder.Services.AddScoped<IHorarioRepository, HorarioRepository>();
 
 var app = builder.Build();
 

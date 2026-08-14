@@ -1,0 +1,104 @@
+@model ControlAsistencia.Web.Models.HorarioFormViewModel
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label asp-for="SchName" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="SchName" class="form-control" maxlength="50" />
+        <span asp-validation-for="SchName" class="text-danger"></span>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="StartTime" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="StartTime" class="form-control" type="time" step="60" />
+        <span asp-validation-for="StartTime" class="text-danger"></span>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="EndTime" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="EndTime" class="form-control" type="time" step="60" />
+        <span asp-validation-for="EndTime" class="text-danger"></span>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="LateMinutes" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="LateMinutes" class="form-control" type="number" min="0" max="1440" />
+        <span asp-validation-for="LateMinutes" class="text-danger"></span>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="EarlyMinutes" class="form-label"></label> <span class="text-danger">*</span>
+        <input asp-for="EarlyMinutes" class="form-control" type="number" min="0" max="1440" />
+        <span asp-validation-for="EarlyMinutes" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="Color" class="form-label"></label>
+        <input asp-for="Color" type="hidden" />
+        <div class="border rounded p-3">
+            <div class="d-flex flex-wrap gap-2" id="colorPalette">
+                @foreach (var color in new[] { 255, 65535, 16715535, 16776960, 65280, 16753920, 8388736, 16777215, 52377, 8388608, 11141120 })
+                {
+                    <button type="button" class="btn border color-swatch @(Model.Color == color ? "border-3 border-dark" : string.Empty)" data-color="@color" style="width: 36px; height: 36px; background-color: @GetColor(color);"></button>
+                }
+            </div>
+            <div class="small mt-2">Valor seleccionado: <strong id="selectedColorValue">@Model.Color</strong></div>
+        </div>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
+        <div class="form-check mt-4">
+            <input asp-for="CheckIn" class="form-check-input" type="checkbox" />
+            <label asp-for="CheckIn" class="form-check-label"></label>
+        </div>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
+        <div class="form-check mt-4">
+            <input asp-for="CheckOut" class="form-check-input" type="checkbox" />
+            <label asp-for="CheckOut" class="form-check-label"></label>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const input = document.getElementById('Color');
+        const label = document.getElementById('selectedColorValue');
+        document.querySelectorAll('.color-swatch').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.color-swatch').forEach(x => x.classList.remove('border-3', 'border-dark'));
+                this.classList.add('border-3', 'border-dark');
+                input.value = this.dataset.color;
+                label.textContent = this.dataset.color;
+            });
+        });
+    })();
+
+    function GetColor(color) {
+        switch (Number(color)) {
+            case 255: return '#ff0000';
+            case 65535: return '#ffff00';
+            case 16715535: return '#0000ff';
+            case 16776960: return '#00ffff';
+            case 65280: return '#00ff00';
+            case 16753920: return '#ffa500';
+            case 8388736: return '#800080';
+            case 16777215: return '#ffffff';
+            case 52377: return '#ccff00';
+            case 8388608: return '#800000';
+            case 11141120: return '#9932cc';
+            default: return '#cccccc';
+        }
+    }
+</script>
+
+@functions {
+    private static string GetColor(int color) => color switch
+    {
+        255 => "#ff0000",
+        65535 => "#ffff00",
+        16715535 => "#0000ff",
+        16776960 => "#00ffff",
+        65280 => "#00ff00",
+        16753920 => "#ffa500",
+        8388736 => "#800080",
+        16777215 => "#ffffff",
+        52377 => "#ccff00",
+        8388608 => "#800000",
+        11141120 => "#9932cc",
+        _ => "#cccccc"
+    };
+}

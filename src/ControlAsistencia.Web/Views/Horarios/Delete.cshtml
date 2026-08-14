@@ -1,0 +1,26 @@
+@model ControlAsistencia.Web.Models.DeleteHorarioViewModel
+
+@{ ViewData["Title"] = "Eliminar horario"; }
+
+<div class="card shadow-sm border-danger">
+    <div class="card-header bg-danger text-white"><h1 class="h4 mb-0">Eliminar horario</h1></div>
+    <div class="card-body">
+        <p class="alert alert-warning">Revise la información antes de confirmar la eliminación.</p>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">@Model.Horario.SchName</dd>
+            <dt class="col-sm-3">Hora de Entrada</dt><dd class="col-sm-9">@Model.Horario.StartTime?.ToString(@"hh\:mm")</dd>
+            <dt class="col-sm-3">Hora de Salida</dt><dd class="col-sm-9">@Model.Horario.EndTime?.ToString(@"hh\:mm")</dd>
+            <dt class="col-sm-3">Tolerancia Entrada</dt><dd class="col-sm-9">@Model.Horario.LateMinutes</dd>
+            <dt class="col-sm-3">Tolerancia Salida</dt><dd class="col-sm-9">@Model.Horario.EarlyMinutes</dd>
+            <dt class="col-sm-3">Color</dt><dd class="col-sm-9">@Model.Horario.Color</dd>
+            <dt class="col-sm-3">Debe Ctrl Entrada</dt><dd class="col-sm-9">@((Model.Horario.CHECKIN ?? 0) == 1 ? "Sí" : "No")</dd>
+            <dt class="col-sm-3">Debe Ctrl Salida</dt><dd class="col-sm-9">@((Model.Horario.CHECKOUT ?? 0) == 1 ? "Sí" : "No")</dd>
+        </dl>
+        <form asp-action="DeleteConfirmed" method="post" class="mt-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="schClassid" value="@Model.Horario.SchClassid" />
+            <button type="submit" class="btn btn-danger">Confirmar eliminación</button>
+            <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
