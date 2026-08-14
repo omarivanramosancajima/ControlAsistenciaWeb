@@ -1,0 +1,40 @@
+@model ControlAsistencia.Web.Models.TurnoFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+<input type="hidden" asp-for="NUM_RUNID" />
+
+<div class="mb-3">
+    <label asp-for="NAME" class="form-label">Nombre <span class="text-danger">*</span></label>
+    <input asp-for="NAME" class="form-control" />
+    <span asp-validation-for="NAME" class="text-danger"></span>
+</div>
+<div class="row g-3">
+    <div class="col-md-6 mb-3">
+        <label asp-for="STARTDATE" class="form-label">Fecha de Inicio <span class="text-danger">*</span></label>
+        <input asp-for="STARTDATE" class="form-control" placeholder="dd/MM/yyyy" type="date" />
+        <span asp-validation-for="STARTDATE" class="text-danger"></span>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label asp-for="ENDDATE" class="form-label">Fecha Fin <span class="text-danger">*</span></label>
+        <input asp-for="ENDDATE" class="form-control" placeholder="dd/MM/yyyy" type="date" />
+        <span asp-validation-for="ENDDATE" class="text-danger"></span>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-md-6 mb-3">
+        <label asp-for="UNITS" class="form-label">Frecuencia <span class="text-danger">*</span></label>
+        <select asp-for="UNITS" class="form-select">
+            <option value="0">Diario</option>
+            <option value="1">Semanal</option>
+            <option value="2">Mensual</option>
+            <option value="3">Quincenal</option>
+        </select>
+        <span asp-validation-for="UNITS" class="text-danger"></span>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label asp-for="CYLE" class="form-label">Ciclos <span class="text-danger">*</span></label>
+        <input asp-for="CYLE" class="form-control" type="number" min="1" max="90" />
+        <span asp-validation-for="CYLE" class="text-danger"></span>
+    </div>
+</div>
