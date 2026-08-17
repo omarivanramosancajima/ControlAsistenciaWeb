@@ -1,0 +1,32 @@
+@model ControlAsistencia.Web.Models.TurnosEmpleadoDeleteConfirmViewModel
+
+<div class="modal fade" id="confirmDeleteAsignacionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deleteAsignacionMessage" class="alert d-none"></div>
+                <p class="mb-3">¿Está seguro de eliminar esta asignación?</p>
+                <dl class="row mb-0">
+                    <dt class="col-4">DNI</dt>
+                    <dd class="col-8">@Model.Ssn</dd>
+                    <dt class="col-4">Persona</dt>
+                    <dd class="col-8">@Model.EmployeeName</dd>
+                    <dt class="col-4">Turno</dt>
+                    <dd class="col-8">@Model.TurnoName</dd>
+                    <dt class="col-4">Inicio</dt>
+                    <dd class="col-8">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
+                    <dt class="col-4">Fin</dt>
+                    <dd class="col-8">@Model.EndDate.ToString("dd/MM/yyyy")</dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteAsignacionButton">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>

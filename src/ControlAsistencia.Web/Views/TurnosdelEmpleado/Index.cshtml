@@ -1,0 +1,615 @@
+@model ControlAsistencia.Web.Models.TurnosEmpleadoIndexViewModel
+
+@{
+    ViewData["Title"] = "Programación de Empleados";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Programación de Empleados</h1>
+    </div>
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Departamentos / Áreas</h2>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="includeSubDependencies" />
+                        <label class="form-check-label" for="includeSubDependencies">Incluir Sub-Dependencias</label>
+                    </div>
+                    <div class="list-group overflow-auto" id="departmentList">
+                        @if (Model.Departments.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">No existen departamentos registrados.</div>
+                        }
+                        else
+                        {
+                            foreach (var department in Model.Departments)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action department-selector"
+                                        data-dept-id="@department.DeptId">
+                                    <span class="d-inline-block ps-@Math.Min(department.Level * 2, 5)">@department.DeptName</span>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-8">
+                <div class="d-flex flex-column gap-3">
+                    <div class="border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Relación de Personal</h2>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllEmployees" />
+                            <label class="form-check-label" for="selectAllEmployees">Seleccionar todas las personas</label>
+                        </div>
+                        <div class="table-responsive employee-panel-scroll">
+                            <table class="table table-hover align-middle mb-0" id="employeesTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>Código</th>
+                                        <th>DNI</th>
+                                        <th>Nombre</th>
+                                        <th>Área</th>
+                                        <th>Foto</th>
+                                        <th>Perfil</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">Seleccione un departamento o área.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-3">
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Relación de turnos asignados al personal</h2>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-primary btn-sm" id="openAssignTurnoModal">Asignar Turno</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="deleteAsignacionButton">Borrar</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm placeholder-action">Trabajo masivo</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm placeholder-action">Importar</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive assignment-panel-scroll">
+                            <table class="table table-hover align-middle mb-0" id="assignmentsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>Turno</th>
+                                        <th>Inicio</th>
+                                        <th>Fin</th>
+                                        <th>Frecuencia</th>
+                                        <th>Ciclo</th>
+                                        <th>Fecha Mínima de Turno</th>
+                                        <th>Fecha Máxima de Turno</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">La persona seleccionada no tiene turnos asignados.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="turnosEmpleadoModalContainer"></div>
+
+@section Scripts {
+<script>
+    (function () {
+        const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        const employeesByDepartmentUrl = '@Url.Action("EmpleadosPorDepartamento", "TurnosdelEmpleado")';
+        const assignmentsByUserUrl = '@Url.Action("AsignacionesPorPersona", "TurnosdelEmpleado")';
+        const assignUrl = '@Url.Action("AsignarTurno", "TurnosdelEmpleado")';
+        const confirmDeleteUrl = '@Url.Action("ConfirmarEliminar", "TurnosdelEmpleado")';
+        const deleteUrl = '@Url.Action("EliminarAsignacion", "TurnosdelEmpleado")';
+        const turns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Turnos.Select(x => new {
+            numRunId = x.NUM_RUNID,
+            name = x.NAME,
+            startDate = x.STARTDATE?.ToString("dd/MM/yyyy"),
+            endDate = x.ENDDATE?.ToString("dd/MM/yyyy"),
+            cyle = x.CYLE,
+            units = x.UNITS,
+            frequencyText = GetUnitsText(x.UNITS)
+        })));
+
+        const includeSubDependencies = document.getElementById('includeSubDependencies');
+        const selectAllEmployees = document.getElementById('selectAllEmployees');
+        const employeesTableBody = document.querySelector('#employeesTable tbody');
+        const assignmentsTableBody = document.querySelector('#assignmentsTable tbody');
+        const modalContainer = document.getElementById('turnosEmpleadoModalContainer');
+        const openAssignTurnoModalButton = document.getElementById('openAssignTurnoModal');
+        const deleteAsignacionButton = document.getElementById('deleteAsignacionButton');
+
+        let selectedDepartmentId = null;
+        let focusedEmployeeId = null;
+        let selectedEmployeeIds = new Set();
+        let visibleEmployees = [];
+        let selectedAssignmentKey = null;
+
+        document.querySelectorAll('.department-selector').forEach(button => {
+            button.addEventListener('click', async function () {
+                document.querySelectorAll('.department-selector').forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
+                selectedDepartmentId = Number(this.dataset.deptId);
+                focusedEmployeeId = null;
+                selectedAssignmentKey = null;
+                await loadEmployees();
+            });
+        });
+
+        includeSubDependencies.addEventListener('change', async function () {
+            if (selectedDepartmentId) {
+                focusedEmployeeId = null;
+                selectedAssignmentKey = null;
+                await loadEmployees();
+            }
+        });
+
+        selectAllEmployees.addEventListener('change', function () {
+            if (this.checked) {
+                visibleEmployees.forEach(item => selectedEmployeeIds.add(item.userId));
+            } else {
+                visibleEmployees.forEach(item => selectedEmployeeIds.delete(item.userId));
+            }
+            renderEmployees();
+        });
+
+        document.querySelectorAll('.placeholder-action').forEach(button => {
+            button.addEventListener('click', function () {
+                alert('En construcción');
+            });
+        });
+
+        openAssignTurnoModalButton.addEventListener('click', function () {
+            openAssignModal();
+        });
+
+        deleteAsignacionButton.addEventListener('click', async function () {
+            await openDeleteModal();
+        });
+
+        async function loadEmployees() {
+            if (!selectedDepartmentId) {
+                employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Seleccione un departamento o área.</td></tr>';
+                return;
+            }
+
+            employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Cargando personas...</td></tr>';
+            assignmentsTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">La persona seleccionada no tiene turnos asignados.</td></tr>';
+
+            const response = await fetch(`${employeesByDepartmentUrl}?deptId=${selectedDepartmentId}&includeSubDependencies=${includeSubDependencies.checked}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                employeesTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">${result.message || 'No fue posible cargar las personas.'}</td></tr>`;
+                visibleEmployees = [];
+                syncSelectAllEmployees();
+                return;
+            }
+
+            visibleEmployees = result.items || [];
+            selectedEmployeeIds = new Set(Array.from(selectedEmployeeIds).filter(id => visibleEmployees.some(item => item.userId === id)));
+
+            if (visibleEmployees.length === 0) {
+                focusedEmployeeId = null;
+                renderEmployees();
+                assignmentsTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">La persona seleccionada no tiene turnos asignados.</td></tr>';
+                return;
+            }
+
+            focusedEmployeeId = visibleEmployees.some(item => item.userId === focusedEmployeeId)
+                ? focusedEmployeeId
+                : visibleEmployees[0].userId;
+
+            renderEmployees();
+            await loadAssignments();
+        }
+
+        function renderEmployees() {
+            if (visibleEmployees.length === 0) {
+                employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay personas asignadas a este departamento.</td></tr>';
+                syncSelectAllEmployees();
+                return;
+            }
+
+            employeesTableBody.innerHTML = visibleEmployees.map(item => {
+                const isFocused = item.userId === focusedEmployeeId;
+                const isChecked = selectedEmployeeIds.has(item.userId);
+                const photoContent = item.photoBase64
+                    ? `<img src="${item.photoBase64}" alt="Foto" class="img-thumbnail employee-photo-thumb" />`
+                    : '<div class="border rounded d-inline-flex align-items-center justify-content-center bg-light text-muted employee-photo-thumb">N/D</div>';
+
+                return `
+                    <tr class="employee-row ${isFocused ? 'table-primary' : ''}" data-user-id="${item.userId}">
+                        <td>
+                            <input type="checkbox" class="form-check-input employee-checkbox" data-user-id="${item.userId}" ${isChecked ? 'checked' : ''} />
+                        </td>
+                        <td>${escapeHtml(item.badgeNumber || '')}</td>
+                        <td>${escapeHtml(item.ssn || '')}</td>
+                        <td>${escapeHtml(item.name || '')}</td>
+                        <td>${escapeHtml(item.departmentName || '')}</td>
+                        <td>${photoContent}</td>
+                        <td>${escapeHtml(item.privilegeDescription || 'Desconocido')}</td>
+                    </tr>`;
+            }).join('');
+
+            employeesTableBody.querySelectorAll('.employee-row').forEach(row => {
+                row.addEventListener('click', async function (event) {
+                    if (event.target.closest('.employee-checkbox')) {
+                        return;
+                    }
+
+                    focusedEmployeeId = Number(this.dataset.userId);
+                    selectedAssignmentKey = null;
+                    renderEmployees();
+                    await loadAssignments();
+                });
+            });
+
+            employeesTableBody.querySelectorAll('.employee-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                });
+
+                checkbox.addEventListener('change', function () {
+                    const userId = Number(this.dataset.userId);
+                    if (this.checked) {
+                        selectedEmployeeIds.add(userId);
+                    } else {
+                        selectedEmployeeIds.delete(userId);
+                    }
+                    syncSelectAllEmployees();
+                });
+            });
+
+            syncSelectAllEmployees();
+        }
+
+        async function loadAssignments() {
+            if (!focusedEmployeeId) {
+                assignmentsTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">La persona seleccionada no tiene turnos asignados.</td></tr>';
+                return;
+            }
+
+            assignmentsTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Cargando asignaciones...</td></tr>';
+            const response = await fetch(`${assignmentsByUserUrl}?userId=${focusedEmployeeId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                assignmentsTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${result.message || 'No fue posible cargar las asignaciones.'}</td></tr>`;
+                return;
+            }
+
+            const items = result.items || [];
+            if (items.length === 0) {
+                assignmentsTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">La persona seleccionada no tiene turnos asignados.</td></tr>';
+                selectedAssignmentKey = null;
+                return;
+            }
+
+            assignmentsTableBody.innerHTML = items.map(item => {
+                const assignmentKey = buildAssignmentKey(item);
+                const isSelected = selectedAssignmentKey === assignmentKey;
+                return `
+                    <tr class="assignment-row ${isSelected ? 'table-primary' : ''}" data-assignment-key="${assignmentKey}" data-user-id="${item.userId}" data-num-of-run-id="${item.numOfRunId}" data-start-date="${item.startDate}" data-end-date="${item.endDate}">
+                        <td><input type="radio" class="form-check-input assignment-radio" name="selectedAssignment" ${isSelected ? 'checked' : ''} /></td>
+                        <td>${escapeHtml(item.turnoName || '')}</td>
+                        <td>${formatDate(item.startDate)}</td>
+                        <td>${formatDate(item.endDate)}</td>
+                        <td>${escapeHtml(item.frequencyText || '')}</td>
+                        <td>${escapeHtml(item.cyle ?? '')}</td>
+                        <td>${escapeHtml(item.turnoStartDate || '')}</td>
+                        <td>${escapeHtml(item.turnoEndDate || '')}</td>
+                    </tr>`;
+            }).join('');
+
+            assignmentsTableBody.querySelectorAll('.assignment-row').forEach(row => {
+                row.addEventListener('click', function () {
+                    selectedAssignmentKey = this.dataset.assignmentKey;
+                    renderSelectedAssignment();
+                });
+            });
+        }
+
+        function renderSelectedAssignment() {
+            assignmentsTableBody.querySelectorAll('.assignment-row').forEach(row => {
+                const isSelected = row.dataset.assignmentKey === selectedAssignmentKey;
+                row.classList.toggle('table-primary', isSelected);
+                const radio = row.querySelector('.assignment-radio');
+                if (radio) {
+                    radio.checked = isSelected;
+                }
+            });
+        }
+
+        function syncSelectAllEmployees() {
+            selectAllEmployees.checked = visibleEmployees.length > 0 && visibleEmployees.every(item => selectedEmployeeIds.has(item.userId));
+        }
+
+        function openAssignModal() {
+            const selectedEmployees = visibleEmployees.filter(item => selectedEmployeeIds.has(item.userId));
+            if (selectedEmployees.length === 0) {
+                alert('Debe seleccionar al menos una persona.');
+                return;
+            }
+
+            modalContainer.innerHTML = buildAssignModal(selectedEmployees);
+            const modalElement = document.getElementById('assignTurnoEmpleadoModal');
+            const modal = new bootstrap.Modal(modalElement);
+            bindAssignModalEvents(modal, selectedEmployees);
+            modal.show();
+        }
+
+        function buildAssignModal(selectedEmployees) {
+            const turnosOptions = turns.map(turno => `<option value="${turno.numRunId}">${escapeHtml(turno.name || '')}</option>`).join('');
+            const selectedPeople = selectedEmployees.map(item => `
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" checked disabled />
+                    <label class="form-check-label">${escapeHtml(item.badgeNumber || '')} - ${escapeHtml(item.name || '')}</label>
+                </div>`).join('');
+
+            return `
+                <div class="modal fade" id="assignTurnoEmpleadoModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Asignar Turno</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="assignTurnoEmpleadoMessage" class="alert d-none"></div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Personas seleccionadas</label>
+                                    <div class="border rounded p-3 modal-selected-people-scroll">${selectedPeople}</div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label" for="assignTurnoSelect">Turno</label>
+                                        <select class="form-select" id="assignTurnoSelect">
+                                            <option value="">Seleccione</option>
+                                            ${turnosOptions}
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="assignStartDate">Fecha Inicio</label>
+                                        <input type="date" class="form-control" id="assignStartDate" />
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="assignEndDate">Fecha Fin</label>
+                                        <input type="date" class="form-control" id="assignEndDate" />
+                                    </div>
+                                </div>
+                                <div class="border rounded p-3 mt-3 d-none" id="assignmentProgressBox">
+                                    <h6 class="mb-3">Procesando asignación</h6>
+                                    <div id="assignmentProgressContent" class="small text-muted"></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary" id="saveAssignTurnoButton">Grabar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function bindAssignModalEvents(modal, selectedEmployees) {
+            const saveButton = document.getElementById('saveAssignTurnoButton');
+            const messageBox = document.getElementById('assignTurnoEmpleadoMessage');
+            const progressBox = document.getElementById('assignmentProgressBox');
+            const progressContent = document.getElementById('assignmentProgressContent');
+
+            saveButton.addEventListener('click', async function () {
+                const numRunId = Number(document.getElementById('assignTurnoSelect').value || 0);
+                const startDate = document.getElementById('assignStartDate').value;
+                const endDate = document.getElementById('assignEndDate').value;
+
+                if (selectedEmployees.length === 0) {
+                    showModalMessage(messageBox, 'Debe seleccionar al menos una persona.', false);
+                    return;
+                }
+                if (!numRunId) {
+                    showModalMessage(messageBox, 'Debe seleccionar un turno.', false);
+                    return;
+                }
+                if (!startDate || !endDate) {
+                    showModalMessage(messageBox, 'Debe ingresar la fecha de inicio y fin.', false);
+                    return;
+                }
+                if (startDate > endDate) {
+                    showModalMessage(messageBox, 'La fecha de inicio no puede ser mayor a la fecha fin.', false);
+                    return;
+                }
+
+                saveButton.disabled = true;
+                progressBox.classList.remove('d-none');
+                progressContent.innerHTML = '<div>Estado: Iniciando...</div>';
+
+                const response = await fetch(assignUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': antiForgeryToken
+                    },
+                    body: JSON.stringify({
+                        userIds: selectedEmployees.map(item => item.userId),
+                        numRunId: numRunId,
+                        startDate: startDate,
+                        endDate: endDate
+                    })
+                });
+
+                const result = await response.json();
+                renderProgress(progressContent, result.progressItems || []);
+
+                if (!response.ok || !result.success) {
+                    showModalMessage(messageBox, result.message || 'No fue posible procesar la asignación.', false);
+                    saveButton.disabled = false;
+                    return;
+                }
+
+                showModalMessage(messageBox, result.message || 'Asignación registrada correctamente.', true);
+                await loadAssignments();
+                modal.hide();
+            });
+        }
+
+        async function openDeleteModal() {
+            if (!focusedEmployeeId) {
+                alert('Debe seleccionar una persona.');
+                return;
+            }
+
+            const selectedRow = assignmentsTableBody.querySelector(`.assignment-row[data-assignment-key="${selectedAssignmentKey || ''}"]`);
+            if (!selectedRow) {
+                alert('Debe seleccionar una asignación de turno.');
+                return;
+            }
+
+            const query = new URLSearchParams({
+                userId: selectedRow.dataset.userId,
+                numOfRunId: selectedRow.dataset.numOfRunId,
+                startDate: selectedRow.dataset.startDate,
+                endDate: selectedRow.dataset.endDate
+            });
+
+            const response = await fetch(`${confirmDeleteUrl}?${query.toString()}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                alert('No fue posible cargar la confirmación de borrado.');
+                return;
+            }
+
+            modalContainer.innerHTML = await response.text();
+            const modalElement = document.getElementById('confirmDeleteAsignacionModal');
+            const modal = new bootstrap.Modal(modalElement);
+            bindDeleteModalEvents(modal, selectedRow);
+            modal.show();
+        }
+
+        function bindDeleteModalEvents(modal, selectedRow) {
+            const confirmButton = document.getElementById('confirmDeleteAsignacionButton');
+            const messageBox = document.getElementById('deleteAsignacionMessage');
+
+            confirmButton.addEventListener('click', async function () {
+                confirmButton.disabled = true;
+
+                const response = await fetch(deleteUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': antiForgeryToken
+                    },
+                    body: JSON.stringify({
+                        userId: Number(selectedRow.dataset.userId),
+                        numOfRunId: Number(selectedRow.dataset.numOfRunId),
+                        startDate: selectedRow.dataset.startDate,
+                        endDate: selectedRow.dataset.endDate
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    showModalMessage(messageBox, result.message || 'No fue posible eliminar la asignación.', false);
+                    confirmButton.disabled = false;
+                    return;
+                }
+
+                modal.hide();
+                selectedAssignmentKey = null;
+                await loadAssignments();
+            });
+        }
+
+        function renderProgress(container, progressItems) {
+            if (!progressItems || progressItems.length === 0) {
+                container.innerHTML = '<div>Estado: Sin información de progreso.</div>';
+                return;
+            }
+
+            container.innerHTML = progressItems.map(item => `
+                <div class="border rounded p-2 mb-2">
+                    <div><strong>Persona ${item.position} de ${item.total}</strong></div>
+                    <div>${escapeHtml(item.employeeName || '')} (${escapeHtml(item.badgeNumber || '')})</div>
+                    <div>Estado: ${escapeHtml(item.status || '')}</div>
+                    <div>Resultado: ${escapeHtml(item.result || '')}</div>
+                </div>`).join('');
+        }
+
+        function showModalMessage(messageBox, message, isSuccess) {
+            messageBox.className = isSuccess ? 'alert alert-success' : 'alert alert-danger';
+            messageBox.textContent = message;
+            messageBox.classList.remove('d-none');
+        }
+
+        function buildAssignmentKey(item) {
+            return `${item.userId}|${item.numOfRunId}|${item.startDate}|${item.endDate}`;
+        }
+
+        function formatDate(value) {
+            if (!value) {
+                return '';
+            }
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return value;
+            }
+            return date.toLocaleDateString('es-PE');
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+    })();
+</script>
+}
+
+@functions {
+    private static string GetUnitsText(int? units) => units switch
+    {
+        0 => "Diario",
+        1 => "Semanal",
+        2 => "Mensual",
+        3 => "Quincenal",
+        _ => string.Empty
+    };
+}
