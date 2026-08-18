@@ -1,0 +1,23 @@
+namespace ControlAsistencia.Web.Models;
+
+/// <summary>
+/// DATOS DEMO TEMPORALES - NO REPRESENTAN EL MOTOR REAL DE ASISTENCIA.
+/// </summary>
+public class AttendanceReportPersonSummaryViewModel
+{
+    public int Codigo { get; set; }
+    public string Dni { get; set; } = string.Empty;
+    public string Personal { get; set; } = string.Empty;
+    public string Area { get; set; } = string.Empty;
+    public string HorarioCodigo { get; set; } = string.Empty;
+    public string HorarioRango { get; set; } = string.Empty;
+    public string DiasAsistencia { get; set; } = string.Empty;
+    public string DiasFalta { get; set; } = string.Empty;
+    public string HorasEfectivas { get; set; } = string.Empty;
+    public string HorasPermiso { get; set; } = string.Empty;
+    public string Tardanza { get; set; } = string.Empty;
+    public string SalidaTemprana { get; set; } = string.Empty;
+    public string HorasExtras { get; set; } = string.Empty;
+    public string DiasJustificados { get; set; } = string.Empty;
+    public IReadOnlyList<AttendanceReportRowViewModel> Rows { get; set; } = Array.Empty<AttendanceReportRowViewModel>();
+}

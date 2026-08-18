@@ -8,8 +8,8 @@
         <p class="alert alert-warning">Revise la información antes de confirmar la eliminación.</p>
         <dl class="row mb-0">
             <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">@Model.Horario.SchName</dd>
-            <dt class="col-sm-3">Hora de Entrada</dt><dd class="col-sm-9">@Model.Horario.StartTime?.ToString(@"hh\:mm")</dd>
-            <dt class="col-sm-3">Hora de Salida</dt><dd class="col-sm-9">@Model.Horario.EndTime?.ToString(@"hh\:mm")</dd>
+            <dt class="col-sm-3">Hora de Entrada</dt><dd class="col-sm-9">@Model.Horario.StartTime?.ToString(@"HH\:mm")</dd>
+            <dt class="col-sm-3">Hora de Salida</dt><dd class="col-sm-9">@Model.Horario.EndTime?.ToString(@"HH\:mm")</dd>
             <dt class="col-sm-3">Tolerancia Entrada</dt><dd class="col-sm-9">@Model.Horario.LateMinutes</dd>
             <dt class="col-sm-3">Tolerancia Salida</dt><dd class="col-sm-9">@Model.Horario.EarlyMinutes</dd>
             <dt class="col-sm-3">Color</dt><dd class="col-sm-9">@Model.Horario.Color</dd>

@@ -383,6 +383,67 @@ VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
                     await connection.OpenAsync();
                     await using var transaction = await connection.BeginTransactionAsync();
 
+                    const string turnoSql = @"
+                    SELECT TOP (1)
+                        NUM_RUNID,
+                        NAME,
+                        STARTDATE,
+                        ENDDATE,
+                        CYLE,
+                        UNITS
+                    FROM dbo.NUM_RUN
+                    WHERE NUM_RUNID = @NumRunId;";
+
+                    var turno = await connection.QueryFirstOrDefaultAsync<TurnoDTO>(
+                    turnoSql,
+                    new
+                    {
+                        NumRunId = request.NumRunId!.Value
+                    },
+                    transaction);
+
+                    if (turno is null)
+                    {
+                        await transaction.RollbackAsync();
+
+                        return new TurnosEmpleadoAssignResult
+                        {
+                            Success = false,
+                            Message = "El turno seleccionado no existe.",
+                            ProgressItems = progress
+                        };
+                    }
+
+                    var turnoStartDate = turno.StartDate?.Date;
+                    var turnoEndDate = turno.EndDate?.Date;
+
+                    if (!turnoStartDate.HasValue || !turnoEndDate.HasValue)
+                    {
+                        await transaction.RollbackAsync();
+
+                        return new TurnosEmpleadoAssignResult
+                        {
+                            Success = false,
+                            Message = "El turno seleccionado no tiene un rango de fechas válido.",
+                            ProgressItems = progress
+                        };
+                    }
+
+                    if (newStartDate.Date < turnoStartDate.Value ||
+                        newEndDate.Date > turnoEndDate.Value)
+                    {
+                        await transaction.RollbackAsync();
+
+                        return new TurnosEmpleadoAssignResult
+                        {
+                            Success = false,
+                            Message =
+                                $"El rango solicitado debe estar dentro del rango del turno " +
+                                $"({turnoStartDate:dd/MM/yyyy} - {turnoEndDate:dd/MM/yyyy}).",
+                            ProgressItems = progress
+                        };
+                    }
+
                     progressItem.Status = "Consultando asignaciones";
                     var overlaps = (await connection.QueryAsync<TurnoEmpleadoAsignacionItemViewModel>(overlappingSql, new
                     {
@@ -567,6 +628,41 @@ VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Elimina Turno Empleado: ' + ISN
         catch (Exception)
         {
             return OperationResult.Fail("No fue posible eliminar la asignación en este momento.");
+        }
+    }
+
+    public async Task<TurnoDTO?> GetTurnoByIdAsync(int numRunId)
+    {
+        const string sql = @"
+    SELECT TOP (1)
+        NUM_RUNID,
+        NAME,
+        STARTDATE,
+        ENDDATE,
+        CYLE,
+        UNITS
+    FROM dbo.NUM_RUN WITH (NOLOCK)
+    WHERE NUM_RUNID = @NumRunId;";
+
+        try
+        {
+            await using var connection = new SqlConnection(_connectionString);
+
+            return await connection.QueryFirstOrDefaultAsync<TurnoDTO>(
+                sql,
+                new { NumRunId = numRunId });
+        }
+        catch (SqlException ex)
+        {
+            throw new InvalidOperationException(
+                "Ocurrió un error SQL al obtener el turno.",
+                ex);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "Ocurrió un error inesperado al obtener el turno.",
+                ex);
         }
     }
 }

@@ -33,3 +33,210 @@ html {
 body {
   margin-bottom: 60px;
 }
+
+.attendance-report-table {
+  min-width: 1880px;
+  font-size: 0.82rem;
+  color: #1f2937;
+}
+
+.attendance-report-card {
+  border: 1px solid #d9dee7;
+}
+
+.attendance-report-header {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
+  border-bottom: 1px solid #dbe3ee;
+}
+
+.attendance-report-body {
+  background-color: #ffffff;
+}
+
+.attendance-report-actions .btn {
+  min-width: 150px;
+}
+
+.attendance-report-filters {
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background-color: #f8fafc;
+}
+
+.attendance-report-alert {
+  border-left: 4px solid #0d6efd;
+}
+
+.attendance-report-meta {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background-color: #fcfcfd;
+}
+
+.attendance-report-legend {
+  align-items: center;
+}
+
+.attendance-legend-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.attendance-legend-falta {
+  background-color: #f8d7da;
+  color: #842029;
+  border-color: #f1aeb5;
+}
+
+.attendance-legend-tardanza {
+  background-color: #fff3cd;
+  color: #664d03;
+  border-color: #ffe69c;
+}
+
+.attendance-legend-salida-temprana {
+  background-color: #ffe5b4;
+  color: #8a4b08;
+  border-color: #ffcf7d;
+}
+
+.attendance-legend-horas-extras {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  border-color: #a3cfbb;
+}
+
+.attendance-legend-excepcion {
+  background-color: #cfe2ff;
+  color: #084298;
+  border-color: #9ec5fe;
+}
+
+.attendance-report-table-wrapper {
+  border: 1px solid #d7dce4;
+  border-radius: 0.75rem;
+  overflow: auto;
+  background-color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85);
+}
+
+.attendance-report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #eef2f6 !important;
+  color: #334155;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-color: #cfd6df;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.attendance-report-table tbody td {
+  padding: 0.5rem 0.55rem;
+  border-color: #d9dee6;
+  vertical-align: middle;
+}
+
+.attendance-report-table tbody tr:nth-of-type(even) {
+  background-color: #fbfcfe;
+}
+
+.attendance-report-table tbody tr:hover {
+  background-color: #f3f7fb;
+}
+
+.attendance-col-personal {
+  min-width: 220px;
+  font-weight: 600;
+}
+
+.attendance-col-horario {
+  min-width: 145px;
+  white-space: nowrap;
+}
+
+.attendance-col-excepcion {
+  min-width: 150px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.attendance-col-marcas {
+  min-width: 180px;
+}
+
+.attendance-report-pagination .page-link {
+  color: #334155;
+  border-color: #cfd8e3;
+}
+
+.attendance-report-pagination .page-item.active .page-link {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.attendance-cell-falta {
+  background-color: #f8d7da !important;
+  color: #842029;
+  font-weight: 700;
+}
+
+.attendance-cell-tardanza {
+  background-color: #fff3cd !important;
+  color: #664d03;
+  font-weight: 700;
+}
+
+.attendance-cell-salida-temprana {
+  background-color: #ffe5b4 !important;
+  color: #8a4b08;
+  font-weight: 700;
+}
+
+.attendance-cell-horas-extras {
+  background-color: #d1e7dd !important;
+  color: #0f5132;
+  font-weight: 700;
+}
+
+.attendance-cell-excepcion {
+  background-color: #cfe2ff !important;
+  color: #084298;
+  font-weight: 700;
+}
+
+@media print {
+  .attendance-report-actions,
+  .attendance-report-filters,
+  .attendance-report-alert,
+  .attendance-report-pagination {
+    display: none !important;
+  }
+
+  .attendance-report-card {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .attendance-report-table-wrapper {
+    overflow: visible;
+    border: 1px solid #cfd6df;
+  }
+
+  .attendance-report-table {
+    min-width: 100%;
+    font-size: 0.7rem;
+  }
+}

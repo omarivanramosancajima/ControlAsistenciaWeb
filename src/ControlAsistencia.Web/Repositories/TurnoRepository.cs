@@ -136,7 +136,7 @@ WHERE SCHCLASSID = @SchClassId;";
         const string deleteSql = @"DELETE FROM dbo.NUM_RUN_DEIL WHERE NUM_RUNID = @NumRunId AND SDAYS = @DayNumber;";
         const string insertSql = @"
 INSERT INTO dbo.NUM_RUN_DEIL (NUM_RUNID, STARTTIME, ENDTIME, SDAYS, EDAYS, SCHCLASSID, OverTime)
-VALUES (@NumRunId, @StartTime, @EndTime, @DayNumber, @DayNumber, @SchClassId, 0);";
+VALUES (@NumRunId, @StartTime, @EndTime, @sDayNumber, @eDayNumber, @SchClassId, 0);";
         const string logSql = @"
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
 VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
@@ -187,12 +187,15 @@ VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
             foreach (var day in selectedDays)
             {
                 await connection.ExecuteAsync(deleteSql, new { NumRunId = request.NumRunId, DayNumber = day }, transaction);
+
+                var eday = GetEndDayForAssignment(day, horario.StartTime, horario.EndTime, totalDays);
                 await connection.ExecuteAsync(insertSql, new
                 {
                     NumRunId = request.NumRunId,
                     StartTime = horario.StartTime,
                     EndTime = horario.EndTime,
-                    DayNumber = day,
+                    sDayNumber = day,
+                    eDayNumber = eday,
                     SchClassId = request.SchClassId
                 }, transaction);
             }
@@ -215,6 +218,27 @@ VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
         {
             return OperationResult.Fail("No fue posible guardar la asignación de horarios.");
         }
+    }
+
+    private static int GetEndDayForAssignment(int startDay, DateTime? startTime, DateTime? endTime, int totalDays)
+    {
+        if (!startTime.HasValue || !endTime.HasValue)
+        {
+            return startDay;
+        }
+
+        // Horario normal:
+        // 08:00 -> 18:00
+        if (startTime.Value.TimeOfDay <= endTime.Value.TimeOfDay)
+        {
+            return startDay;
+        }
+
+        // Amanecida:
+        // 18:00 -> 06:00
+        return startDay == totalDays
+            ? 1
+            : startDay + 1;
     }
 
     public async Task<OperationResult> CreateAsync(TurnoFormViewModel model, string operatorName, string machineAlias)

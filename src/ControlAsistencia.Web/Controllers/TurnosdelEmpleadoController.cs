@@ -161,6 +161,41 @@ public class TurnosdelEmpleadoController : Controller
             return BadRequest(new { success = false, message = "La fecha de inicio no puede ser mayor a la fecha fin." });
         }
 
+        var turno = await _repository.GetTurnoByIdAsync(request.NumRunId.Value);
+
+        if (turno is null)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = "No fue posible obtener el rango de fechas del turno."
+            });
+        }
+
+        var turnoStartDate = turno.StartDate?.Date;
+        var turnoEndDate = turno.EndDate?.Date;
+
+        if (!turnoStartDate.HasValue || !turnoEndDate.HasValue)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = "El turno seleccionado no tiene configurado un rango de fechas válido."
+            });
+        }
+
+        if (request.StartDate.Value.Date < turnoStartDate.Value ||
+            request.EndDate.Value.Date > turnoEndDate.Value)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message =
+                    $"El rango de asignación del empleado debe estar dentro del rango del turno " +
+                    $"({turnoStartDate:dd/MM/yyyy} - {turnoEndDate:dd/MM/yyyy})."
+            });
+        }
+
         if (!await _repository.TurnoExistsAsync(request.NumRunId.Value))
         {
             return BadRequest(new { success = false, message = "El turno seleccionado no existe." });

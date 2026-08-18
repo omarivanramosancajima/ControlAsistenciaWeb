@@ -15,4 +15,5 @@ public interface ITurnosEmpleadoRepository
     Task<bool> TurnoExistsAsync(int numRunId);
     Task<TurnosEmpleadoAssignResult> AssignTurnoAsync(TurnosEmpleadoAssignRequest request, string operatorName, string machineAlias);
     Task<OperationResult> DeleteAsignacionAsync(TurnosEmpleadoDeleteRequest request, string operatorName, string machineAlias);
+    Task<TurnoDTO> GetTurnoByIdAsync(int numRunId);
 }

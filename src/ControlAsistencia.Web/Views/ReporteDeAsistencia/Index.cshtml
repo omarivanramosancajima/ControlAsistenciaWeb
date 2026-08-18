@@ -1,0 +1,183 @@
+@model ControlAsistencia.Web.Models.AttendanceReportIndexViewModel
+
+@{
+    ViewData["Title"] = "Reporte de Asistencia";
+}
+
+<div class="card shadow-sm attendance-report-card">
+    <div class="card-header attendance-report-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+        <div>
+            <h1 class="h4 mb-1">Reporte de Asistencia MTPE</h1>
+            <!--
+            <div class="text-muted small">DATOS DEMO TEMPORALES - NO REPRESENTAN EL MOTOR REAL DE ASISTENCIA.</div>
+            //-->
+        </div>
+        <div class="d-flex flex-wrap gap-2 attendance-report-actions">
+            <a asp-action="ExportarExcel" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
+            <a asp-action="EmitirReporte" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+        </div>
+    </div>
+    <div class="card-body attendance-report-body">
+        <form method="get" class="row g-3 mb-4 attendance-report-filters">
+            <div class="col-md-6 col-lg-2">
+                <label class="form-label">Fecha Desde</label>
+                <input type="date" name="fechaDesde" value="@Model.FechaDesde.ToString("yyyy-MM-dd")" class="form-control" />
+            </div>
+            <div class="col-md-6 col-lg-2">
+                <label class="form-label">Fecha Hasta</label>
+                <input type="date" name="fechaHasta" value="@Model.FechaHasta.ToString("yyyy-MM-dd")" class="form-control" />
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <label class="form-label">Persona</label>
+                <select name="persona" class="form-select">
+                    <option value="">Todas</option>
+                    @foreach (var item in Model.PersonasDisponibles)
+                    {
+                        <option value="@item" selected="@(item == Model.Persona)">@item</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 col-lg-2">
+                <label class="form-label">Área</label>
+                <select name="area" class="form-select">
+                    <option value="">Todas</option>
+                    @foreach (var item in Model.AreasDisponibles)
+                    {
+                        <option value="@item" selected="@(item == Model.Area)">@item</option>
+                    }
+                </select>
+            </div>
+            <!--
+            <div class="col-md-6 col-lg-2">
+                <label class="form-label">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos</option>
+                    @foreach (var item in Model.EstadosDisponibles)
+                    {
+                        <option value="@item" selected="@(item == Model.Estado)">@item</option>
+                    }
+                </select>
+            </div>
+            //-->
+            <div class="col-md-6 col-lg-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Buscar</button>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+            </div>
+        </form>
+        <!--
+        <div class="alert alert-info small mb-3 attendance-report-alert">
+            Esta pantalla usa <strong>datos DEMO en memoria</strong>. Posteriormente esta zona será reemplazada por el servicio real de asistencia sin introducir todavía el motor de cálculo.
+        </div>
+        //-->
+
+        <div class="attendance-report-meta d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2 mb-3">
+            <div>
+                <!--
+                <div class="fw-semibold text-dark">Vista DEMO para presentación</div>
+                //-->
+                <div class="text-muted small">Registros: <strong>@Model.TotalRecords</strong> · Página <strong>@Model.PageNumber</strong> de <strong>@Model.TotalPages</strong> · 20 registros por página</div>
+            </div>
+            <div class="attendance-report-legend d-flex flex-wrap gap-2">
+                <span class="attendance-legend-item attendance-legend-falta">Falta</span>
+                <span class="attendance-legend-item attendance-legend-tardanza">Tardanza</span>
+                <span class="attendance-legend-item attendance-legend-salida-temprana">Salida temprana</span>
+                <span class="attendance-legend-item attendance-legend-horas-extras">Horas extras</span>
+                <span class="attendance-legend-item attendance-legend-excepcion">Excepción</span>
+            </div>
+        </div>
+
+        <div class="table-responsive attendance-report-table-wrapper">
+            <table class="table table-bordered table-hover align-middle attendance-report-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>DNI</th>
+                        <th>Personal</th>
+                        <th>Área</th>
+                        <th>Fecha</th>
+                        <th>Horario Asignado</th>
+                        <th class="text-center">Entra.</th>
+                        <th class="text-center">Salid.</th>
+                        <th class="text-center">Falta</th>
+                        <th class="text-center">Horas EFECT.</th>
+                        <th class="text-center">Horas PERM.</th>
+                        <th class="text-center">Tarda. Entra.</th>
+                        <th class="text-center">Salida Temp.</th>
+                        <th class="text-center">Horas Extras</th>
+                        <th>Excepción</th>
+                        <th>Marcas Intermedias</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr>
+                        <td colspan="16" class="text-center text-muted py-4">No existen registros para los filtros seleccionados.</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var item in Model.Rows)
+                    {
+                        <tr>
+                            <td class="fw-semibold text-nowrap">@item.Codigo</td>
+                            <td class="text-nowrap">@item.Dni</td>
+                            <td class="attendance-col-personal">@item.Personal</td>
+                            <td class="text-nowrap">@item.Area</td>
+                            <td class="text-nowrap">@item.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td class="attendance-col-horario">@item.HorarioAsignado</td>
+                            <td class="text-center text-nowrap">@item.Entrada</td>
+                            <td class="text-center text-nowrap">@item.Salida</td>
+                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "falta")">@item.Falta</td>
+                            <td class="text-center text-nowrap">@item.HorasEfectivas</td>
+                            <td class="text-center text-nowrap">@item.HorasPermiso</td>
+                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "tardanza")">@item.TardanzaEntrada</td>
+                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "salida-temprana")">@item.SalidaTemprana</td>
+                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "horas-extras")">@item.HorasExtras</td>
+                            <td class="attendance-col-excepcion @GetAttendanceCellClass(item, "excepcion")">@item.Excepcion</td>
+                            <td class="attendance-col-marcas">@item.MarcasIntermedias</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav aria-label="Paginación de reporte de asistencia" class="mt-3">
+                <ul class="pagination attendance-report-pagination justify-content-end mb-0">
+                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : null)">
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber - 1)" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado">Anterior</a>
+                    </li>
+                    @for (var i = 1; i <= Model.TotalPages; i++)
+                    {
+                        <li class="page-item @(i == Model.PageNumber ? "active" : null)">
+                            <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado">@i</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : null)">
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber + 1)" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado">Siguiente</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>
+
+@functions {
+    private static string GetAttendanceCellClass(AttendanceReportRowViewModel item, string state)
+    {
+        return state switch
+        {
+            "falta" when item.Falta == "Si" => "attendance-cell-falta",
+            "tardanza" when !string.IsNullOrWhiteSpace(item.TardanzaEntrada) => "attendance-cell-tardanza",
+            "salida-temprana" when !string.IsNullOrWhiteSpace(item.SalidaTemprana) => "attendance-cell-salida-temprana",
+            "horas-extras" when !string.IsNullOrWhiteSpace(item.HorasExtras) => "attendance-cell-horas-extras",
+            "excepcion" when !string.IsNullOrWhiteSpace(item.Excepcion) => "attendance-cell-excepcion",
+            _ => string.Empty
+        };
+    }
+}

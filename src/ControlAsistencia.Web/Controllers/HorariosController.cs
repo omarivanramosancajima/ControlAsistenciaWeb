@@ -55,7 +55,7 @@ public class HorariosController : Controller
     {
         var horario = await _repository.GetByIdAsync(id);
         if (horario is null) { TempData["ErrorMessage"] = "No se encontró el horario solicitado."; return RedirectToAction(nameof(Index)); }
-        return View(BuildForm(new HorarioFormViewModel { SchClassid = horario.SchClassid, SchName = horario.SchName, StartTime = horario.StartTime?.ToString(@"hh\:mm") ?? string.Empty, EndTime = horario.EndTime?.ToString(@"hh\:mm") ?? string.Empty, LateMinutes = horario.LateMinutes, EarlyMinutes = horario.EarlyMinutes, Color = horario.Color ?? 16715535, CheckIn = (horario.CHECKIN ?? 1) == 1, CheckOut = (horario.CHECKOUT ?? 1) == 1 }));
+        return View(BuildForm(new HorarioFormViewModel { SchClassid = horario.SchClassid, SchName = horario.SchName, StartTime = horario.StartTime?.ToString(@"HH\:mm") ?? string.Empty, EndTime = horario.EndTime?.ToString(@"HH\:mm") ?? string.Empty, LateMinutes = horario.LateMinutes, EarlyMinutes = horario.EarlyMinutes, Color = horario.Color ?? 16715535, CheckIn = (horario.CHECKIN ?? 1) == 1, CheckOut = (horario.CHECKOUT ?? 1) == 1 }));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
