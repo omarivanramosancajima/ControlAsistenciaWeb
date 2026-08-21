@@ -1,4 +1,5 @@
 using ControlAsistencia.Web.Repositories;
+using ControlAsistencia.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,14 @@ builder.Services.AddScoped<IHorarioRepository, HorarioRepository>();
 builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
 builder.Services.AddScoped<ITurnosEmpleadoRepository, TurnosEmpleadoRepository>();
 builder.Services.AddScoped<IAttendanceReportDemoRepository, AttendanceReportDemoRepository>();
+builder.Services.AddScoped<IAttendancePersonProvider, AttendancePersonProvider>();
+builder.Services.AddScoped<IAttendanceScheduleProvider, AttendanceScheduleProvider>();
+builder.Services.AddScoped<IAttendanceMarkProvider, AttendanceMarkProvider>();
+builder.Services.AddScoped<IAttendanceParameterProvider, AttendanceParameterProvider>();
+builder.Services.AddScoped<IAttendanceHolidayProvider, AttendanceHolidayProvider>();
+builder.Services.AddScoped<IAttendanceExceptionProvider, AttendanceExceptionProvider>();
+builder.Services.AddScoped<IAttendanceCalculationContextBuilder, AttendanceCalculationContextBuilder>();
+builder.Services.AddScoped<IAttendanceCalculationEngine, AttendanceCalculationEngine>();
 
 var app = builder.Build();
 

@@ -9,131 +9,131 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = ControlAsistencia.Web
 build_property.RootNamespace = ControlAsistencia.Web
-build_property.ProjectDir = D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\
+build_property.ProjectDir = d:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 8.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web
+build_property.MSBuildProjectDirectory = d:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web
 build_property._RazorSourceGeneratorDebug = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Auth/Login.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Auth/Login.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXV0aFxMb2dpbi5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Create.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXENyZWF0ZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Delete.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Delete.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXERlbGV0ZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Edit.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Edit.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXEVkaXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/_DepartmentsPopup.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/_DepartmentsPopup.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXF9EZXBhcnRtZW50c1BvcHVwLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/_Form.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Empleados/_Form.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXF9Gb3JtLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Home/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Home/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Home/Privacy.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Home/Privacy.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Create.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9yYXJpb3NcQ3JlYXRlLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Delete.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Delete.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9yYXJpb3NcRGVsZXRlLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Edit.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Edit.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9yYXJpb3NcRWRpdC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9yYXJpb3NcSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/_Form.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Horarios/_Form.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9yYXJpb3NcX0Zvcm0uY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZ3JhbWFyVHVybm9cSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/_AsignarHorarioModal.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/_AsignarHorarioModal.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZ3JhbWFyVHVybm9cX0FzaWduYXJIb3JhcmlvTW9kYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/_TurnoDetalle.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/_TurnoDetalle.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZ3JhbWFyVHVybm9cX1R1cm5vRGV0YWxsZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ReporteDeAsistencia/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ReporteDeAsistencia/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0ZURlQXNpc3RlbmNpYVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Shared/Error.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Shared/_ValidationScriptsPartial.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/TurnosdelEmpleado/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/TurnosdelEmpleado/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zZGVsRW1wbGVhZG9cSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/TurnosdelEmpleado/_ConfirmDeleteAsignacionModal.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/TurnosdelEmpleado/_ConfirmDeleteAsignacionModal.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zZGVsRW1wbGVhZG9cX0NvbmZpcm1EZWxldGVBc2lnbmFjaW9uTW9kYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Create.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zXENyZWF0ZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Delete.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Delete.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zXERlbGV0ZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Edit.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Edit.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zXEVkaXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Index.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/_Form.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Turnos/_Form.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVHVybm9zXF9Gb3JtLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/_ViewImports.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/_ViewStart.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/_ViewStart.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Shared/_Layout.cshtml]
+[d:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Shared/_Layout.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = b-iwabdqgi6e
