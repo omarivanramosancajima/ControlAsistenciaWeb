@@ -1693,11 +1693,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
+      "projectUniqueName": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
       "projectName": "ControlAsistencia.Web",
-      "projectPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
+      "projectPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
       "packagesPath": "C:\\Users\\ISAL 1\\.nuget\\packages\\",
-      "outputPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\obj\\",
+      "outputPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

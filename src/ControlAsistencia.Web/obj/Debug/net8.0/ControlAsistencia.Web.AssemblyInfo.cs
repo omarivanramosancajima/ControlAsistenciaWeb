@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ControlAsistencia.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b1ca7e29b558b681c2030212ee63ef4bf861c79")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2cf974592b09cc93e35c7a935185ade3c20aa007")]
 [assembly: System.Reflection.AssemblyProductAttribute("ControlAsistencia.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ControlAsistencia.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
