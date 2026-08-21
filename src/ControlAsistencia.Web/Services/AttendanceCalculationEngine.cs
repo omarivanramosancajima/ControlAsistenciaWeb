@@ -469,11 +469,8 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
     private static ScheduleBounds ResolveScheduleBounds(DateOnly date, AttendanceSchedule schedule)
     {
-        var startDayOffset = NormalizeDayOffset(schedule.StartDayOffset, schedule.EndDayOffset, schedule.IsOvernight ? 1 : 0);
-        var endDayOffset = NormalizeDayOffset(schedule.EndDayOffset, schedule.StartDayOffset, schedule.IsOvernight ? 1 : 0);
-
-        var startDate = date.AddDays(startDayOffset);
-        var endDate = date.AddDays(endDayOffset);
+        var startDate = date.AddDays((schedule.StartDayOffset ?? 1) - 1);
+        var endDate = date.AddDays((schedule.EndDayOffset ?? schedule.StartDayOffset ?? 1) - 1);
         var scheduledStart = CombineDateWithTime(startDate.ToDateTime(TimeOnly.MinValue).Date, schedule.ScheduledStartTime ?? TimeOnly.MinValue);
         var scheduledEnd = CombineDateWithTime(endDate.ToDateTime(TimeOnly.MinValue).Date, schedule.ScheduledEndTime ?? TimeOnly.MinValue);
 
@@ -483,17 +480,6 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         }
 
         return new ScheduleBounds(scheduledStart, scheduledEnd);
-    }
-
-    private static int NormalizeDayOffset(short? primaryOffset, short? secondaryOffset, int overnightFallback)
-    {
-        var value = primaryOffset ?? secondaryOffset;
-        if (!value.HasValue)
-        {
-            return overnightFallback;
-        }
-
-        return Math.Max(0, value.Value - 1);
     }
 
     private static bool HasValidTimeRange(TimeOnly? start, TimeOnly? end)
