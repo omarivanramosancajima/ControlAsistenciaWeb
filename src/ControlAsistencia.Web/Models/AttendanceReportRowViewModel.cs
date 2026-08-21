@@ -1,8 +1,5 @@
 namespace ControlAsistencia.Web.Models;
 
-/// <summary>
-/// DATOS DEMO TEMPORALES - NO REPRESENTAN EL MOTOR REAL DE ASISTENCIA.
-/// </summary>
 public class AttendanceReportRowViewModel
 {
     public int Codigo { get; set; }

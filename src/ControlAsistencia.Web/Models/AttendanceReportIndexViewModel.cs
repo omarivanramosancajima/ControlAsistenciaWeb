@@ -1,8 +1,5 @@
 namespace ControlAsistencia.Web.Models;
 
-/// <summary>
-/// DATOS DEMO TEMPORALES - NO REPRESENTAN EL MOTOR REAL DE ASISTENCIA.
-/// </summary>
 public class AttendanceReportIndexViewModel
 {
     public DateTime FechaDesde { get; set; }
@@ -19,4 +16,6 @@ public class AttendanceReportIndexViewModel
     public IReadOnlyList<string> PersonasDisponibles { get; set; } = Array.Empty<string>();
     public IReadOnlyList<string> AreasDisponibles { get; set; } = Array.Empty<string>();
     public IReadOnlyList<string> EstadosDisponibles { get; set; } = Array.Empty<string>();
+    public string CompanyTaxId { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
 }

@@ -21,7 +21,7 @@ builder.Services.AddScoped<IEmpleadoRepository, EmpleadoRepository>();
 builder.Services.AddScoped<IHorarioRepository, HorarioRepository>();
 builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
 builder.Services.AddScoped<ITurnosEmpleadoRepository, TurnosEmpleadoRepository>();
-builder.Services.AddScoped<IAttendanceReportDemoRepository, AttendanceReportDemoRepository>();
+builder.Services.AddScoped<IAttendanceReportRepository, AttendanceReportRepository>();
 builder.Services.AddScoped<IAttendancePersonProvider, AttendancePersonProvider>();
 builder.Services.AddScoped<IAttendanceScheduleProvider, AttendanceScheduleProvider>();
 builder.Services.AddScoped<IAttendanceMarkProvider, AttendanceMarkProvider>();
@@ -30,6 +30,7 @@ builder.Services.AddScoped<IAttendanceHolidayProvider, AttendanceHolidayProvider
 builder.Services.AddScoped<IAttendanceExceptionProvider, AttendanceExceptionProvider>();
 builder.Services.AddScoped<IAttendanceCalculationContextBuilder, AttendanceCalculationContextBuilder>();
 builder.Services.AddScoped<IAttendanceCalculationEngine, AttendanceCalculationEngine>();
+builder.Services.AddScoped<IAttendanceReportService, AttendanceReportService>();
 
 var app = builder.Build();
 

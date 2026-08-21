@@ -1,6 +1,6 @@
 using ClosedXML.Excel;
 using ControlAsistencia.Web.Models;
-using ControlAsistencia.Web.Repositories;
+using ControlAsistencia.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
@@ -14,44 +14,65 @@ namespace ControlAsistencia.Web.Controllers;
 public class ReporteDeAsistenciaController : Controller
 {
     private const int PageSize = 20;
-    private readonly IAttendanceReportDemoRepository _repository;
+    private readonly IAttendanceReportService _service;
 
-    public ReporteDeAsistenciaController(IAttendanceReportDemoRepository repository)
+    public ReporteDeAsistenciaController(IAttendanceReportService service)
     {
-        _repository = repository;
+        _service = service;
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
     [HttpGet]
-    public IActionResult Index(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado, int page = 1)
+    public async Task<IActionResult> Index(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado, int page = 1)
     {
-        var model = _repository.GetReport(fechaDesde, fechaHasta, persona, area, estado, page, PageSize);
+        var model = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            Estado = estado,
+            PageNumber = page,
+            PageSize = PageSize
+        });
+
         return View(model);
     }
 
     [HttpGet]
-    public IActionResult ExportarExcel(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado)
+    public async Task<IActionResult> ExportarExcel(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado)
     {
-        var report = _repository.GetReport(fechaDesde, fechaHasta, persona, area, estado, 1, int.MaxValue);
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
 
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Reporte Asistencia MTPE");
         ws.Cell(1, 1).Value = "Reporte de Asistencia MTPE";
         ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
-        ws.Cell(3, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
+        ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
         ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
         ws.Range(2, 1, 2, 16).Merge();
         ws.Range(3, 1, 3, 16).Merge();
+        ws.Range(4, 1, 4, 16).Merge();
 
         var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
         for (var i = 0; i < headers.Length; i++)
         {
-            ws.Cell(5, i + 1).Value = headers[i];
-            ws.Cell(5, i + 1).Style.Font.SetBold();
-            ws.Cell(5, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(6, i + 1).Value = headers[i];
+            ws.Cell(6, i + 1).Style.Font.SetBold();
+            ws.Cell(6, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
         }
 
-        var rowIndex = 6;
+        var rowIndex = 7;
         foreach (var item in report.Rows)
         {
             ws.Cell(rowIndex, 1).Value = item.Codigo;
@@ -74,20 +95,31 @@ public class ReporteDeAsistenciaController : Controller
         }
 
         ws.Columns().AdjustToContents();
-        ws.Range(5, 1, Math.Max(rowIndex - 1, 5), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-        ws.Range(5, 1, Math.Max(rowIndex - 1, 5), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
-        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteAsistenciaDemo.xlsx");
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteAsistencia.xlsx");
     }
 
     [HttpGet]
-    public IActionResult EmitirReporte(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado)
+    public async Task<IActionResult> EmitirReporte(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado)
     {
-        var persons = _repository.GetPersons(fechaDesde, fechaHasta, persona, area, estado);
-        var reportFrom = fechaDesde ?? new DateTime(2025, 3, 1);
-        var reportTo = fechaHasta ?? new DateTime(2025, 3, 31);
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        var persons = report.Persons;
+        var reportFrom = report.FechaDesde;
+        var reportTo = report.FechaHasta;
         var pdf = Document.Create(container =>
         {
             foreach (var person in persons)
@@ -105,7 +137,7 @@ public class ReporteDeAsistenciaController : Controller
                         column.Item().Text($"Rango: {reportFrom:yyyy-MM-dd} a {reportTo:yyyy-MM-dd}").FontSize(8).AlignCenter();
                         column.Item().Text("(Refrigerio => HR ó HN: horario que descuenta 60 ó 90 minutos, HS: horario que no descuenta.)").FontSize(7).AlignCenter();
                         column.Item().PaddingTop(2).Text("RUC:").Bold().FontSize(8);
-                        column.Item().Text("20602709869 - CHIHUANTITO ALVAREZ CEFERINA INES").FontSize(8);
+                        column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
 
                         column.Item().PaddingTop(2).Table(table =>
                         {
@@ -200,7 +232,7 @@ public class ReporteDeAsistenciaController : Controller
             }
         }).GeneratePdf();
 
-        return File(pdf, "application/pdf", "ReporteAsistenciaDemo.pdf");
+        return File(pdf, "application/pdf", "ReporteAsistencia.pdf");
     }
 
     private static IContainer CellHeader(IContainer container)

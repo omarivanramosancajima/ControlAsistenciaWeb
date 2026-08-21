@@ -8,9 +8,6 @@
     <div class="card-header attendance-report-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
         <div>
             <h1 class="h4 mb-1">Reporte de Asistencia MTPE</h1>
-            <!--
-            <div class="text-muted small">DATOS DEMO TEMPORALES - NO REPRESENTAN EL MOTOR REAL DE ASISTENCIA.</div>
-            //-->
         </div>
         <div class="d-flex flex-wrap gap-2 attendance-report-actions">
             <a asp-action="ExportarExcel" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
@@ -66,17 +63,8 @@
                 <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
             </div>
         </form>
-        <!--
-        <div class="alert alert-info small mb-3 attendance-report-alert">
-            Esta pantalla usa <strong>datos DEMO en memoria</strong>. Posteriormente esta zona será reemplazada por el servicio real de asistencia sin introducir todavía el motor de cálculo.
-        </div>
-        //-->
-
         <div class="attendance-report-meta d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2 mb-3">
             <div>
-                <!--
-                <div class="fw-semibold text-dark">Vista DEMO para presentación</div>
-                //-->
                 <div class="text-muted small">Registros: <strong>@Model.TotalRecords</strong> · Página <strong>@Model.PageNumber</strong> de <strong>@Model.TotalPages</strong> · 20 registros por página</div>
             </div>
             <div class="attendance-report-legend d-flex flex-wrap gap-2">
