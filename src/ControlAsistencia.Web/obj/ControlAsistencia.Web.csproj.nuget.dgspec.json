@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj": {}
+    "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj": {}
   },
   "projects": {
-    "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj": {
+    "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
+        "projectUniqueName": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
         "projectName": "ControlAsistencia.Web",
-        "projectPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
+        "projectPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
         "packagesPath": "C:\\Users\\ISAL 1\\.nuget\\packages\\",
-        "outputPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\obj\\",
+        "outputPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -30,7 +30,14 @@
                     <option value="">Todas</option>
                     @foreach (var item in Model.PersonasDisponibles)
                     {
-                        <option value="@item" selected="@(item == Model.Persona)">@item</option>
+                        if (string.Equals(item, Model.Persona, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <option value="@item" selected>@item</option>
+                        }
+                        else
+                        {
+                            <option value="@item">@item</option>
+                        }
                     }
                 </select>
             </div>
@@ -40,11 +47,17 @@
                     <option value="">Todas</option>
                     @foreach (var item in Model.AreasDisponibles)
                     {
-                        <option value="@item" selected="@(item == Model.Area)">@item</option>
+                        if (string.Equals(item, Model.Area, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <option value="@item" selected>@item</option>
+                        }
+                        else
+                        {
+                            <option value="@item">@item</option>
+                        }
                     }
                 </select>
             </div>
-            <!--
             <div class="col-md-6 col-lg-2">
                 <label class="form-label">Estado</label>
                 <select name="estado" class="form-select">
@@ -55,7 +68,6 @@
                     }
                 </select>
             </div>
-            //-->
             <div class="col-md-6 col-lg-1 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">Buscar</button>
             </div>

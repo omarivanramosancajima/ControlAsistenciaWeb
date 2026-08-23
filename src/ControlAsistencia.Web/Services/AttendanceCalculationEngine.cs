@@ -6,7 +6,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 {
     private static readonly TimeSpan DefaultEntryWindowLead = TimeSpan.FromHours(2);
     private static readonly TimeSpan DefaultExitWindowTrail = TimeSpan.FromHours(6);
-    private static readonly TimeSpan HrBreakDeduction = TimeSpan.FromMinutes(6);
+    private static readonly TimeSpan HrBreakDeduction = TimeSpan.FromMinutes(60);
     private static readonly TimeSpan HnBreakDeduction = TimeSpan.FromMinutes(90);
 
     public AttendanceDayResult Calculate(AttendanceCalculationContext context)

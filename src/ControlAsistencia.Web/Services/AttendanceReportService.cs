@@ -149,7 +149,15 @@ public class AttendanceReportService : IAttendanceReportService
             SalidaTemprana = FormatDuration(result.EarlyExitDuration),
             HorasExtras = FormatDuration(result.OvertimeDuration),
             Excepcion = result.Exception?.LeaveName ?? string.Empty,
-            MarcasIntermedias = string.Join(' ', result.IntermediateMarks.Select(static x => x.Timestamp.ToString("HH:mm")))
+            MarcasIntermedias = string.Join(' ', result.IntermediateMarks.Select(static x => x.Timestamp.ToString("HH:mm"))),
+            TieneTurno = result.Schedule?.HasSchedule == true,
+            EsFinDeSemana = result.IsWeekend,
+            EsFeriado = result.IsHoliday,
+            EsFeriadoConTurno = result.IsHolidayWithSchedule,
+            EsFeriadoSinTurno = result.IsHolidayWithoutSchedule,
+            EsSinTurno = result.IsNoSchedule,
+            EstaJustificado = result.Exception is not null,
+            HorasJustificadas = FormatDuration(result.JustifiedDuration)
         };
     }
 
@@ -165,6 +173,11 @@ public class AttendanceReportService : IAttendanceReportService
         var salidaTemprana = SumDurations(rows.Select(static x => x.SalidaTemprana));
         var horasExtras = SumDurations(rows.Select(static x => x.HorasExtras));
         var diasJustificados = rows.Count(static x => !string.IsNullOrWhiteSpace(x.Excepcion));
+        var diasConTurno = rows.Count(static x => x.TieneTurno);
+        var diasSinTurno = rows.Count(static x => x.EsSinTurno);
+        var feriadosConTurno = rows.Count(static x => x.EsFeriadoConTurno);
+        var feriadosSinTurno = rows.Count(static x => x.EsFeriadoSinTurno);
+        var horasJustificadas = SumDurations(rows.Select(static x => x.HorasJustificadas));
 
         return new AttendanceReportPersonSummaryViewModel
         {
@@ -182,6 +195,11 @@ public class AttendanceReportService : IAttendanceReportService
             SalidaTemprana = FormatSummaryDuration(salidaTemprana),
             HorasExtras = FormatSummaryDuration(horasExtras),
             DiasJustificados = diasJustificados.ToString(),
+            DiasConTurno = diasConTurno.ToString(),
+            DiasSinTurno = diasSinTurno.ToString(),
+            FeriadosConTurno = feriadosConTurno.ToString(),
+            FeriadosSinTurno = feriadosSinTurno.ToString(),
+            HorasJustificadas = FormatSummaryDuration(horasJustificadas),
             Rows = rows.OrderBy(static x => x.Fecha).ToList()
         };
     }
@@ -243,6 +261,11 @@ public class AttendanceReportService : IAttendanceReportService
     {
         if (result.Schedule is null || !result.Schedule.HasSchedule)
         {
+            if (result.IsHoliday)
+            {
+                return "FERIADO";
+            }
+
             return result.IsWeekend ? "FIN DE SEMANA" : string.Empty;
         }
 

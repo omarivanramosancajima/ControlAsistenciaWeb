@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using ControlAsistencia.Web.Models;
 using ControlAsistencia.Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -94,6 +95,29 @@ public class ReporteDeAsistenciaController : Controller
             rowIndex++;
         }
 
+        rowIndex++;
+        ws.Cell(rowIndex, 1).Value = "Totales";
+        ws.Cell(rowIndex, 1).Style.Font.SetBold();
+        rowIndex++;
+
+        foreach (var person in report.Persons)
+        {
+            ws.Cell(rowIndex, 1).Value = person.Personal;
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 2).Value = $"Código: {person.Codigo}";
+            ws.Cell(rowIndex, 3).Value = $"DNI: {person.Dni}";
+            rowIndex++;
+
+            WriteSummaryRow(ws, rowIndex++, "Días de Asistencia", person.DiasAsistencia, "Días con Turno", person.DiasConTurno);
+            WriteSummaryRow(ws, rowIndex++, "Días sin Turno", person.DiasSinTurno, "Feriados con Turno", person.FeriadosConTurno);
+            WriteSummaryRow(ws, rowIndex++, "Feriados sin Turno", person.FeriadosSinTurno, "Días de Falta", person.DiasFalta);
+            WriteSummaryRow(ws, rowIndex++, "Horas Efectivas", person.HorasEfectivas, "Horas Permanencia", person.HorasPermiso);
+            WriteSummaryRow(ws, rowIndex++, "Tardanza", person.Tardanza, "Salida Temprana", person.SalidaTemprana);
+            WriteSummaryRow(ws, rowIndex++, "Horas Extras", person.HorasExtras, "Días Justificados", person.DiasJustificados);
+            WriteSummaryRow(ws, rowIndex++, "Horas Justificadas", person.HorasJustificadas, string.Empty, string.Empty);
+            rowIndex++;
+        }
+
         ws.Columns().AdjustToContents();
         ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
         ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
@@ -120,6 +144,10 @@ public class ReporteDeAsistenciaController : Controller
         var persons = report.Persons;
         var reportFrom = report.FechaDesde;
         var reportTo = report.FechaHasta;
+        var currentUser = User?.Identity?.IsAuthenticated == true
+            ? (User.Identity?.Name ?? string.Empty)
+            : string.Empty;
+
         var pdf = Document.Create(container =>
         {
             foreach (var person in persons)
@@ -210,6 +238,10 @@ public class ReporteDeAsistenciaController : Controller
                             });
 
                             TotalsCell(table, "Días de Asist.", person.DiasAsistencia);
+                            TotalsCell(table, "Días con Turno", person.DiasConTurno);
+                            TotalsCell(table, "Días sin Turno", person.DiasSinTurno);
+                            TotalsCell(table, "Feriados c/Turno", person.FeriadosConTurno);
+                            TotalsCell(table, "Feriados s/Turno", person.FeriadosSinTurno);
                             TotalsCell(table, "Días de Falta", person.DiasFalta);
                             TotalsCell(table, "Horas EFECT.", person.HorasEfectivas);
                             TotalsCell(table, "Horas PERM.", person.HorasPermiso);
@@ -217,6 +249,8 @@ public class ReporteDeAsistenciaController : Controller
                             TotalsCell(table, "Salida Temp.", person.SalidaTemprana);
                             TotalsCell(table, "Horas Extras", person.HorasExtras);
                             TotalsCell(table, "Días Justificad.", person.DiasJustificados);
+                            TotalsCell(table, "Horas Justific.", person.HorasJustificadas);
+                            TotalsCell(table, string.Empty, string.Empty);
                         });
                     });
 
@@ -224,7 +258,7 @@ public class ReporteDeAsistenciaController : Controller
                     {
                         text.DefaultTextStyle(x => x.FontSize(7));
                         text.Span("User: ");
-                        text.Span("OMAR RAMOS A..");
+                        text.Span(string.IsNullOrWhiteSpace(currentUser) ? "N/A" : currentUser);
                         text.Span("    Pag. ");
                         text.CurrentPageNumber();
                     });
@@ -286,5 +320,15 @@ public class ReporteDeAsistenciaController : Controller
     {
         table.Cell().Element(CellBody).Text(label).Bold();
         table.Cell().Element(CellBody).AlignCenter().Text(value);
+    }
+
+    private static void WriteSummaryRow(IXLWorksheet worksheet, int rowIndex, string leftLabel, string leftValue, string rightLabel, string rightValue)
+    {
+        worksheet.Cell(rowIndex, 1).Value = leftLabel;
+        worksheet.Cell(rowIndex, 1).Style.Font.SetBold();
+        worksheet.Cell(rowIndex, 2).Value = leftValue;
+        worksheet.Cell(rowIndex, 3).Value = rightLabel;
+        worksheet.Cell(rowIndex, 3).Style.Font.SetBold();
+        worksheet.Cell(rowIndex, 4).Value = rightValue;
     }
 }

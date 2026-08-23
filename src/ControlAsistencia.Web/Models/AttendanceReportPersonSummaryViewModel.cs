@@ -16,5 +16,10 @@ public class AttendanceReportPersonSummaryViewModel
     public string SalidaTemprana { get; set; } = string.Empty;
     public string HorasExtras { get; set; } = string.Empty;
     public string DiasJustificados { get; set; } = string.Empty;
+    public string DiasConTurno { get; set; } = string.Empty;
+    public string DiasSinTurno { get; set; } = string.Empty;
+    public string FeriadosConTurno { get; set; } = string.Empty;
+    public string FeriadosSinTurno { get; set; } = string.Empty;
+    public string HorasJustificadas { get; set; } = string.Empty;
     public IReadOnlyList<AttendanceReportRowViewModel> Rows { get; set; } = Array.Empty<AttendanceReportRowViewModel>();
 }

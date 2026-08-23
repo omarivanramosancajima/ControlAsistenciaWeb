@@ -20,4 +20,12 @@ public class AttendanceReportRowViewModel
     public string HorasExtras { get; set; } = string.Empty;
     public string Excepcion { get; set; } = string.Empty;
     public string MarcasIntermedias { get; set; } = string.Empty;
+    public bool TieneTurno { get; set; }
+    public bool EsFinDeSemana { get; set; }
+    public bool EsFeriado { get; set; }
+    public bool EsFeriadoConTurno { get; set; }
+    public bool EsFeriadoSinTurno { get; set; }
+    public bool EsSinTurno { get; set; }
+    public bool EstaJustificado { get; set; }
+    public string HorasJustificadas { get; set; } = string.Empty;
 }

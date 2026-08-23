@@ -1693,11 +1693,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
+      "projectUniqueName": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
       "projectName": "ControlAsistencia.Web",
-      "projectPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
+      "projectPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
       "packagesPath": "C:\\Users\\ISAL 1\\.nuget\\packages\\",
-      "outputPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\obj\\",
+      "outputPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -1775,5 +1775,13 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.300/PortableRuntimeIdentifierGraph.json"
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Error al obtener los datos de vulnerabilidad del paquete: Intento de acceso a un socket no permitido por sus permisos de acceso. (api.nuget.org:443)"
+    }
+  ]
 }
