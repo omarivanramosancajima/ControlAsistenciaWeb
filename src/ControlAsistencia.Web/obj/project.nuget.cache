@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "kUfnppRvpAA=",
+  "dgSpecHash": "lZK7TULKw5Q=",
   "success": true,
   "projectFilePath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj",
   "expectedPackageFiles": [
@@ -38,12 +38,5 @@
     "C:\\Users\\ISAL 1\\.nuget\\packages\\system.security.cryptography.pkcs\\8.0.1\\system.security.cryptography.pkcs.8.0.1.nupkg.sha512",
     "C:\\Users\\ISAL 1\\.nuget\\packages\\system.security.cryptography.protecteddata\\8.0.0\\system.security.cryptography.protecteddata.8.0.0.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1900",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Error al obtener los datos de vulnerabilidad del paquete: Intento de acceso a un socket no permitido por sus permisos de acceso. (api.nuget.org:443)"
-    }
-  ]
+  "logs": []
 }
