@@ -46,6 +46,26 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRW1wbGVhZG9zXF9Gb3JtLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Excepciones/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRXhjZXBjaW9uZXNcQ3JlYXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Excepciones/Delete.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRXhjZXBjaW9uZXNcRGVsZXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Excepciones/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRXhjZXBjaW9uZXNcRWRpdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Excepciones/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRXhjZXBjaW9uZXNcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Excepciones/_Form.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRXhjZXBjaW9uZXNcX0Zvcm0uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Feriados/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRmVyaWFkb3NcQ3JlYXRlLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 

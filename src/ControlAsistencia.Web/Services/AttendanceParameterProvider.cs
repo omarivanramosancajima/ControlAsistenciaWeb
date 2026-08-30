@@ -16,6 +16,10 @@ public class AttendanceParameterProvider : IAttendanceParameterProvider
 
     public async Task<AttendanceCalculationParameters> GetParametersAsync()
     {
+        // [ASISTWEB][SEC.01.02]
+        // [ASISTWEB][SEC.02]
+        // [ASISTWEB][SEC.03.06.03]
+        // [ASISTWEB][SEC.03.06.04]
         const string sql = @"
 SELECT
     PARANAME AS ParameterName,
@@ -26,9 +30,7 @@ WHERE PARANAME IN
     @AllowAfterOT,
     @AllowEarlyOT,
     @IntervalOfAfterOT,
-    @IntervalOfAfterOTAlternate,
     @IntervalOfEarlyOT,
-    @IntervalOfEarlyOTAlternate,
     @LimitAfterMaxOT,
     @AfterMaxOT,
     @LimitEarlyMaxOT,
@@ -47,6 +49,7 @@ WHERE PARANAME IN
     @ShowHoliday,
     @AllowHolidayOT,
     @LimitHolidayOT,
+    @ShowWeekends,
     @WeekenFullDayOT,
     @Weekends
 );";
@@ -59,9 +62,7 @@ WHERE PARANAME IN
                 AllowAfterOT = "AllowAfterOT",
                 AllowEarlyOT = "AllowEarlyOT",
                 IntervalOfAfterOT = "IntervalOfAfterOT",
-                IntervalOfAfterOTAlternate = "IntervalOfAfterOT_",
                 IntervalOfEarlyOT = "IntervalOfEarlyOT",
-                IntervalOfEarlyOTAlternate = "IntervalOfEarlyOT_",
                 LimitAfterMaxOT = "LimitAfterMaxOT",
                 AfterMaxOT = "AfterMaxOT",
                 LimitEarlyMaxOT = "LimitEarlyMaxOT",
@@ -80,6 +81,7 @@ WHERE PARANAME IN
                 ShowHoliday = "ShowHoliday",
                 AllowHolidayOT = "AllowHolidayOT",
                 LimitHolidayOT = "LimitHolidayOT",
+                ShowWeekends = "Showweekends",
                 WeekenFullDayOT = "WeekenFullDayOT",
                 Weekends = "weekends"
             })).ToDictionary(x => x.ParameterName, x => x.ParameterValue, StringComparer.OrdinalIgnoreCase);
@@ -89,9 +91,7 @@ WHERE PARANAME IN
                 AllowAfterOT = GetBool(rows, "AllowAfterOT"),
                 AllowEarlyOT = GetBool(rows, "AllowEarlyOT"),
                 IntervalOfAfterOT = GetInt(rows, "IntervalOfAfterOT"),
-                IntervalOfAfterOTAlternate = GetInt(rows, "IntervalOfAfterOT_"),
                 IntervalOfEarlyOT = GetInt(rows, "IntervalOfEarlyOT"),
-                IntervalOfEarlyOTAlternate = GetInt(rows, "IntervalOfEarlyOT_"),
                 LimitAfterMaxOT = GetBool(rows, "LimitAfterMaxOT"),
                 AfterMaxOT = GetInt(rows, "AfterMaxOT"),
                 LimitEarlyMaxOT = GetBool(rows, "LimitEarlyMaxOT"),
@@ -110,8 +110,9 @@ WHERE PARANAME IN
                 ShowHoliday = GetBool(rows, "ShowHoliday"),
                 AllowHolidayOT = GetBool(rows, "AllowHolidayOT"),
                 LimitHolidayOT = GetInt(rows, "LimitHolidayOT"),
+                ShowWeekends = GetBool(rows, "Showweekends"),
                 WeekenFullDayOT = GetBool(rows, "WeekenFullDayOT"),
-                Weekends = GetInt(rows, "weekends")
+                WeekendsRaw = GetString(rows, "weekends") ?? string.Empty
             };
         }
         catch (SqlException ex)

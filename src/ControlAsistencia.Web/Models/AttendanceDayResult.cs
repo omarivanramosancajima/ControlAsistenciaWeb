@@ -1,6 +1,11 @@
 namespace ControlAsistencia.Web.Models;
 
 /// <summary>
+/// [ASISTWEB][SEC.01]
+/// [ASISTWEB][SEC.02]
+/// [ASISTWEB][SEC.03.06.06]
+/// [ASISTWEB][SEC.04]
+/// [ASISTWEB][SEC.05]
 /// Resultado de asistencia de una persona para un único día.
 /// </summary>
 public class AttendanceDayResult
@@ -11,7 +16,12 @@ public class AttendanceDayResult
     public string? PersonName { get; set; }
     public int? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }
+    public string CompanyTaxId { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
+    public string? CompanyResolutionDiagnostic { get; set; }
     public DateOnly Date { get; set; }
+    public string DayNumberText { get; set; } = string.Empty;
+    public string DayNameText { get; set; } = string.Empty;
     public AttendanceSchedule? Schedule { get; set; }
     public AttendanceMark? EntryMark { get; set; }
     public AttendanceMark? ExitMark { get; set; }
@@ -30,6 +40,14 @@ public class AttendanceDayResult
     public bool IsHolidayWithSchedule { get; set; }
     public bool IsHolidayWithoutSchedule { get; set; }
     public bool IsNoSchedule { get; set; }
+    public bool HasScheduledAssignment { get; set; }
+    public bool HasExceptions { get; set; }
+    public string ExceptionDisplayText { get; set; } = string.Empty;
+    public string ScheduleDisplayText { get; set; } = string.Empty;
+    public AttendancePersonAccumulation Accumulation { get; set; } = new();
+    public string ScheduleObservationCode { get; set; } = string.Empty;
+    public bool ProcessedBySection02 { get; set; }
+    public bool ProcessedBySection03 { get; set; }
 
     /// <summary>
     /// Derivación final de inconsistencias restringida a los tres casos aprobados.

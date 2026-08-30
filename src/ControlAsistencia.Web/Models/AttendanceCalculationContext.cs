@@ -1,6 +1,12 @@
 namespace ControlAsistencia.Web.Models;
 
 /// <summary>
+/// [ASISTWEB][SEC.00]
+/// [ASISTWEB][SEC.01]
+/// [ASISTWEB][SEC.01.01]
+/// [ASISTWEB][SEC.01.02]
+/// [ASISTWEB][SEC.01.03]
+/// [ASISTWEB][SEC.01.04]
 /// Contexto de entrada preparado para el futuro motor de asistencia.
 /// Solo transporta datos ya resueltos.
 /// </summary>
@@ -12,6 +18,9 @@ public class AttendanceCalculationContext
     public string? PersonName { get; set; }
     public int? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }
+    public string CompanyTaxId { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
+    public string? CompanyResolutionDiagnostic { get; set; }
     public DateOnly CalculationDate { get; set; }
     public AttendanceSchedule? Schedule { get; set; }
     public IReadOnlyList<AttendanceMark> Marks { get; set; } = Array.Empty<AttendanceMark>();
@@ -22,4 +31,5 @@ public class AttendanceCalculationContext
     public string? HolidayName { get; set; }
     public bool IsWeekend { get; set; }
     public bool IsNoSchedule { get; set; }
+    public bool HasExceptions => Exceptions.Count > 0;
 }

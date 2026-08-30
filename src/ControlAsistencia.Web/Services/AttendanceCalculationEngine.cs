@@ -6,9 +6,6 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 {
     private static readonly TimeSpan DefaultEntryWindowLead = TimeSpan.FromHours(2);
     private static readonly TimeSpan DefaultExitWindowTrail = TimeSpan.FromHours(6);
-    private static readonly TimeSpan HrBreakDeduction = TimeSpan.FromMinutes(60);
-    private static readonly TimeSpan HnBreakDeduction = TimeSpan.FromMinutes(90);
-
     public AttendanceDayResult Calculate(AttendanceCalculationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -27,17 +24,21 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         var resolvedException = ResolveException(context);
         var result = CreateBaseResult(context);
+        var accumulation = new AttendancePersonAccumulation();
         result.Exception = resolvedException.SelectedException;
         result.JustifiedDuration = resolvedException.JustifiedDuration;
         result.JustifiedDayFraction = resolvedException.JustifiedDayFraction;
+        result.ExceptionDisplayText = BuildExceptionDisplayText(context, context.IsNoSchedule);
+        result.ScheduleDisplayText = BuildInitialScheduleDisplayText(context);
+        result.Accumulation = accumulation;
 
         if (context.IsNoSchedule || context.Schedule is null || !context.Schedule.HasSchedule)
         {
-            CalculateNoSchedule(context, orderedMarks, orderedNextDayMarks, resolvedException, result);
+            CalculateNoSchedule(context, orderedMarks, orderedNextDayMarks, resolvedException, result, accumulation);
             return result;
         }
 
-        CalculateScheduledDay(context, orderedMarks, resolvedException, result);
+        CalculateScheduledDay(context, orderedMarks, resolvedException, result, accumulation);
         return result;
     }
 
@@ -67,8 +68,44 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         IReadOnlyList<AttendanceMark> orderedMarks,
         IReadOnlyList<AttendanceMark> orderedNextDayMarks,
         ExceptionResolution resolvedException,
-        AttendanceDayResult result)
+        AttendanceDayResult result,
+        AttendancePersonAccumulation accumulation)
     {
+        // [ASISTWEB][SEC.02]
+        if (orderedMarks.Count == 0)
+        {
+            result.ProcessedBySection02 = false;
+            return;
+        }
+
+        if (context.IsHoliday && !context.Parameters.ShowHoliday)
+        {
+            result.ProcessedBySection02 = false;
+            return;
+        }
+
+        if (!context.IsHoliday && context.IsWeekend && !context.Parameters.ShowWeekends)
+        {
+            result.ProcessedBySection02 = false;
+            return;
+        }
+
+        if (!context.IsHoliday && !context.IsWeekend && !context.Parameters.ShowNoTurn)
+        {
+            result.ProcessedBySection02 = false;
+            return;
+        }
+
+        result.ProcessedBySection02 = true;
+        accumulation.DiasDeAsistenciaSinTurno++;
+
+        if (context.IsHoliday)
+        {
+            accumulation.FeriadosSinTurno++;
+        }
+
+        ApplyNoScheduleLabels(context, result);
+
         if (orderedMarks.Count == 0)
         {
             result.IsAbsent = false;
@@ -86,50 +123,87 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
             if (nextDayClosure is null)
             {
+                // [ASISTWEB][SEC.02.01.01]
                 result.IntermediateMarks = Array.Empty<AttendanceMark>();
                 result.InconsistencyKind = AttendanceInconsistencyKind.SingleMarkWithoutNextDayClosure;
                 result.IsAbsent = false;
+                ApplySingleMarkExceptionAccumulation(context, resolvedException, result, accumulation);
+                accumulation.DiasDeAsistencia++;
                 return;
             }
 
+            // [ASISTWEB][SEC.02.01.02]
             result.ExitMark = nextDayClosure;
             result.IntermediateMarks = Array.Empty<AttendanceMark>();
 
             var rawDuration = nextDayClosure.Timestamp - orderedMarks[0].Timestamp;
-            var netDuration = ApplyAutomaticBreakDeduction(context.Schedule?.ScheduleName, rawDuration);
+            var netDuration = ApplyAutomaticBreakDeduction(context.Schedule, rawDuration);
 
             result.EffectiveWorkDuration = netDuration;
             result.PresenceDuration = netDuration;
             result.OvertimeDuration = ResolveNoScheduleOvertime(context, netDuration);
             result.IsAbsent = false;
+            ApplyNoScheduleExceptionAccumulation(context, resolvedException, accumulation);
+            AccumulateFinalDurations(result, accumulation);
+            accumulation.DiasDeAsistencia++;
             return;
         }
 
+        // [ASISTWEB][SEC.02.02]
         result.EntryMark = orderedMarks.First();
         result.ExitMark = orderedMarks.Last();
         result.IntermediateMarks = orderedMarks.Skip(1).Take(orderedMarks.Count - 2).ToList();
 
         var duration = result.ExitMark.Timestamp - result.EntryMark.Timestamp;
-        var effective = ApplyAutomaticBreakDeduction(context.Schedule?.ScheduleName, duration);
+        var effective = ApplyAutomaticBreakDeduction(context.Schedule, duration);
         result.EffectiveWorkDuration = effective;
         result.PresenceDuration = effective;
         result.OvertimeDuration = ResolveNoScheduleOvertime(context, effective);
         result.IsAbsent = false;
+        ApplyNoScheduleExceptionAccumulation(context, resolvedException, accumulation);
+        AccumulateFinalDurations(result, accumulation);
+        accumulation.DiasDeAsistencia++;
     }
 
     private static void CalculateScheduledDay(
         AttendanceCalculationContext context,
         IReadOnlyList<AttendanceMark> orderedMarks,
         ExceptionResolution resolvedException,
-        AttendanceDayResult result)
+        AttendanceDayResult result,
+        AttendancePersonAccumulation accumulation)
     {
+        // [ASISTWEB][SEC.03]
         var schedule = context.Schedule!;
         var scheduleBounds = ResolveScheduleBounds(context.CalculationDate, schedule);
         var entryWindow = ResolveEntryWindow(scheduleBounds, schedule);
         var exitWindow = ResolveExitWindow(scheduleBounds, schedule);
 
-        var entryMark = orderedMarks.FirstOrDefault(mark => IsWithinWindow(mark.Timestamp, entryWindow.Start, entryWindow.End));
-        var exitMark = orderedMarks.LastOrDefault(mark => !mark.IsPreviousDayClosureMark && IsWithinWindow(mark.Timestamp, exitWindow.Start, exitWindow.End));
+        accumulation.DiasProgramadosConTurno++;
+        result.ProcessedBySection03 = true;
+        result.ScheduleDisplayText = BuildAssignedScheduleDisplayText(context, scheduleBounds, string.Empty);
+
+        if (orderedMarks.Count > 0 && context.IsHoliday && !context.Parameters.ShowHoliday)
+        {
+            result.ProcessedBySection03 = false;
+            return;
+        }
+
+        if (orderedMarks.Count > 0 && !context.IsHoliday && context.IsWeekend && !context.Parameters.ShowWeekends)
+        {
+            result.ProcessedBySection03 = false;
+            return;
+        }
+
+        if (orderedMarks.Count == 0)
+        {
+            // [ASISTWEB][SEC.03.05]
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, string.Empty);
+            return;
+        }
+
+        // [ASISTWEB][SEC.03.06.01]
+        var entryMark = orderedMarks.FirstOrDefault(mark => IsWithinEntryWindow(mark.Timestamp, entryWindow.Start, entryWindow.End));
+        var exitMark = orderedMarks.LastOrDefault(mark => !mark.IsPreviousDayClosureMark && IsWithinExitWindow(mark.Timestamp, exitWindow.Start, exitWindow.End));
 
         result.EntryMark = entryMark;
         result.ExitMark = exitMark;
@@ -137,173 +211,124 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             .Where(mark => !ReferenceEquals(mark, entryMark) && !ReferenceEquals(mark, exitMark))
             .ToList();
 
-        var entryTimeForCalculations = entryMark?.Timestamp;
-        var exitTimeForCalculations = exitMark?.Timestamp;
-        var missingEntry = entryMark is null;
-        var missingExit = exitMark is null;
-
-        if (missingEntry)
+        ScheduledScenarioState state;
+        if (entryMark is null && exitMark is null)
         {
-            switch (context.Parameters.NoInAbsent)
-            {
-                case 0 when exitMark is not null:
-                    entryTimeForCalculations = scheduleBounds.ScheduledStart;
-                    break;
-                case 1:
-                    entryTimeForCalculations = scheduleBounds.ScheduledStart.AddMinutes(context.Parameters.MinsNoIn);
-                    result.LateEntryDuration = TimeSpan.FromMinutes(context.Parameters.MinsNoIn);
-                    break;
-                case 2:
-                    result.IsAbsent = true;
-                    result.InconsistencyKind = AttendanceInconsistencyKind.MissingEntry;
-                    ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
-                    return;
-            }
-        }
-
-        if (missingExit)
-        {
-            switch (context.Parameters.NoOutAbsent)
-            {
-                case 0 when entryTimeForCalculations is not null:
-                    exitTimeForCalculations = scheduleBounds.ScheduledEnd;
-                    break;
-                case 1:
-                    exitTimeForCalculations = scheduleBounds.ScheduledEnd.AddMinutes(-context.Parameters.MinsNoLeave);
-                    result.EarlyExitDuration = TimeSpan.FromMinutes(context.Parameters.MinsNoLeave);
-                    break;
-                case 2:
-                    result.IsAbsent = true;
-                    if (result.InconsistencyKind == AttendanceInconsistencyKind.None)
-                    {
-                        result.InconsistencyKind = AttendanceInconsistencyKind.MissingExit;
-                    }
-                    ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
-                    return;
-            }
-        }
-
-        if (entryTimeForCalculations is null && exitTimeForCalculations is null)
-        {
-            result.IsAbsent = true;
-            ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
+            // [ASISTWEB][SEC.03.06.02.01]
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(*)");
             return;
         }
 
-        if (entryTimeForCalculations is null || exitTimeForCalculations is null)
+        if (entryMark is null)
         {
-            result.IsAbsent = true;
-            if (entryTimeForCalculations is null)
+            // [ASISTWEB][SEC.03.06.02.02]
+            state = ProcessMissingEntryScenario(context, resolvedException, result, accumulation, scheduleBounds, exitMark!);
+            if (state.IsTerminal)
             {
-                result.InconsistencyKind = AttendanceInconsistencyKind.MissingEntry;
+                return;
             }
-            else if (exitTimeForCalculations is null)
+        }
+        else if (exitMark is null)
+        {
+            // [ASISTWEB][SEC.03.06.02.03]
+            state = ProcessMissingExitScenario(context, resolvedException, result, accumulation, scheduleBounds, entryMark);
+            if (state.IsTerminal)
             {
-                result.InconsistencyKind = AttendanceInconsistencyKind.MissingExit;
+                return;
             }
-
-            ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
-            return;
         }
-
-        var scheduledDuration = scheduleBounds.ScheduledEnd - scheduleBounds.ScheduledStart;
-        var actualDuration = exitTimeForCalculations.Value - entryTimeForCalculations.Value;
-        var effectiveDuration = ApplyAutomaticBreakDeduction(schedule.ScheduleName, actualDuration);
-        var presenceDuration = effectiveDuration;
-
-        var computedLate = result.LateEntryDuration ?? CalculateLateDuration(scheduleBounds.ScheduledStart, entryTimeForCalculations.Value, schedule.LateToleranceMinutes ?? 0);
-        var computedEarly = result.EarlyExitDuration ?? CalculateEarlyExitDuration(scheduleBounds.ScheduledEnd, exitTimeForCalculations.Value, schedule.EarlyToleranceMinutes ?? 0);
-
-        computedLate = AdjustDurationByException(scheduleBounds.ScheduledStart, entryTimeForCalculations.Value, computedLate, resolvedException.SelectedException);
-        computedEarly = AdjustDurationByException(exitTimeForCalculations.Value, scheduleBounds.ScheduledEnd, computedEarly, resolvedException.SelectedException);
-
-        result.LateEntryDuration = computedLate > TimeSpan.Zero ? computedLate : null;
-        result.EarlyExitDuration = computedEarly > TimeSpan.Zero ? computedEarly : null;
-
-        if (context.Parameters.LateAbsent && result.LateEntryDuration.HasValue && result.LateEntryDuration.Value.TotalMinutes > context.Parameters.MinsLateAbsent)
+        else
         {
-            result.IsAbsent = true;
-        }
-
-        if (context.Parameters.EarlyAbsent && result.EarlyExitDuration.HasValue && result.EarlyExitDuration.Value.TotalMinutes > context.Parameters.MinsEarlyAbsent)
-        {
-            result.IsAbsent = true;
-        }
-
-        var hadFullDayException = resolvedException.CoversWholeScheduledDay;
-        ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
-
-        if (!result.IsAbsent || hadFullDayException)
-        {
-            result.EffectiveWorkDuration = effectiveDuration;
-            result.PresenceDuration = presenceDuration;
-            result.OvertimeDuration = ResolveScheduledOvertime(context, scheduleBounds, entryTimeForCalculations.Value, exitTimeForCalculations.Value, scheduledDuration);
-
-            if (context.IsWeekend && context.Parameters.WeekenFullDayOT)
+            // [ASISTWEB][SEC.03.06.02.04]
+            state = ProcessEntryAndExitScenario(context, resolvedException, result, accumulation, scheduleBounds, entryMark, exitMark);
+            if (state.IsTerminal)
             {
-                result.OvertimeDuration = effectiveDuration;
+                return;
             }
         }
 
-        if (missingEntry && result.InconsistencyKind == AttendanceInconsistencyKind.None)
+        // [ASISTWEB][SEC.03.06.03][SEC.03.06.04]
+        result.OvertimeDuration = ResolveScheduledOvertime(context, scheduleBounds, state.EntryForCalculations, state.ExitForCalculations);
+
+        // [ASISTWEB][SEC.03.06.05]
+        ApplyScheduledExceptionRules(context, resolvedException, result, accumulation, scheduleBounds, state);
+
+        // [ASISTWEB][SEC.03.06.06]
+        result.ScheduleDisplayText = BuildAssignedScheduleDisplayText(context, scheduleBounds, string.Empty);
+        result.IsAbsent = false;
+        AccumulateFinalDurations(result, accumulation);
+
+        // [ASISTWEB][SEC.03.06.07]
+        if (context.IsHoliday && context.Parameters.ShowHoliday)
         {
-            result.InconsistencyKind = AttendanceInconsistencyKind.MissingEntry;
+            accumulation.FeriadosConTurno++;
         }
 
-        if (missingExit && result.InconsistencyKind == AttendanceInconsistencyKind.None)
-        {
-            result.InconsistencyKind = AttendanceInconsistencyKind.MissingExit;
-        }
+        accumulation.DiasDeAsistencia++;
     }
 
     private static TimeSpan ResolveScheduledOvertime(
         AttendanceCalculationContext context,
         ScheduleBounds scheduleBounds,
         DateTime actualEntry,
-        DateTime actualExit,
-        TimeSpan scheduledDuration)
+        DateTime actualExit)
     {
+        var totalOt = CalculateEarlyOvertime(context, scheduleBounds, actualEntry)
+            + CalculateAfterOvertime(context, scheduleBounds, actualExit);
+
         if (context.IsHoliday && context.Parameters.ShowHoliday && context.Parameters.AllowHolidayOT)
         {
-            var holidayOt = ApplyLimit(actualExit - actualEntry, context.Parameters.LimitHolidayOT);
-            return ApplyAutomaticBreakDeduction(context.Schedule?.ScheduleName, holidayOt);
+            return totalOt > TimeSpan.Zero
+                ? ApplyLimit(totalOt, context.Parameters.LimitHolidayOT)
+                : TimeSpan.Zero;
         }
 
-        if (context.IsWeekend && context.Parameters. WeekenFullDayOT)
+        if (context.IsWeekend)
         {
-            return ApplyAutomaticBreakDeduction(context.Schedule?.ScheduleName, actualExit - actualEntry);
+            return context.Parameters.WeekenFullDayOT && totalOt > TimeSpan.Zero
+                ? totalOt
+                : TimeSpan.Zero;
         }
 
-        var earlyOt = TimeSpan.Zero;
-        if (context.Parameters.AllowEarlyOT)
+        return totalOt;
+    }
+
+    private static TimeSpan CalculateAfterOvertime(AttendanceCalculationContext context, ScheduleBounds scheduleBounds, DateTime actualExit)
+    {
+        // [ASISTWEB][SEC.03.06.03]
+        if (!context.Parameters.AllowAfterOT || context.Parameters.IntervalOfAfterOT <= 0 || actualExit <= scheduleBounds.ScheduledEnd)
         {
-            var earlyDiff = scheduleBounds.ScheduledStart - actualEntry;
-            if (earlyDiff.TotalMinutes >= context.Parameters.IntervalOfEarlyOT)
-            {
-                earlyOt = TimeSpan.FromMinutes(Math.Max(0, earlyDiff.TotalMinutes - context.Parameters.IntervalOfEarlyOTAlternate));
-                if (context.Parameters.LimitEarlyMaxOT)
-                {
-                    earlyOt = ApplyLimit(earlyOt, context.Parameters.EarlyMaxOT);
-                }
-            }
+            return TimeSpan.Zero;
         }
 
-        var afterOt = TimeSpan.Zero;
-        if (context.Parameters.AllowAfterOT)
+        var diff = actualExit - scheduleBounds.ScheduledEnd;
+        if (diff.TotalMinutes < context.Parameters.IntervalOfAfterOT)
         {
-            var afterDiff = actualExit - scheduleBounds.ScheduledEnd;
-            if (afterDiff.TotalMinutes >= context.Parameters.IntervalOfAfterOT)
-            {
-                afterOt = TimeSpan.FromMinutes(Math.Max(0, afterDiff.TotalMinutes - context.Parameters.IntervalOfAfterOTAlternate));
-                if (context.Parameters.LimitAfterMaxOT)
-                {
-                    afterOt = ApplyLimit(afterOt, context.Parameters.AfterMaxOT);
-                }
-            }
+            return TimeSpan.Zero;
         }
 
-        var totalOt = earlyOt + afterOt;
-        return totalOt > scheduledDuration ? scheduledDuration : totalOt;
+        return context.Parameters.LimitAfterMaxOT && context.Parameters.AfterMaxOT > 0
+            ? ApplyLimit(diff, context.Parameters.AfterMaxOT)
+            : diff;
+    }
+
+    private static TimeSpan CalculateEarlyOvertime(AttendanceCalculationContext context, ScheduleBounds scheduleBounds, DateTime actualEntry)
+    {
+        // [ASISTWEB][SEC.03.06.03]
+        if (!context.Parameters.AllowEarlyOT || context.Parameters.IntervalOfEarlyOT <= 0 || actualEntry >= scheduleBounds.ScheduledStart)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var diff = scheduleBounds.ScheduledStart - actualEntry;
+        if (diff.TotalMinutes < context.Parameters.IntervalOfEarlyOT)
+        {
+            return TimeSpan.Zero;
+        }
+
+        return context.Parameters.LimitEarlyMaxOT && context.Parameters.EarlyMaxOT > 0
+            ? ApplyLimit(diff, context.Parameters.EarlyMaxOT)
+            : diff;
     }
 
     private static TimeSpan ResolveNoScheduleOvertime(AttendanceCalculationContext context, TimeSpan effectiveDuration)
@@ -442,11 +467,12 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
     private static ScheduleWindow ResolveEntryWindow(ScheduleBounds bounds, AttendanceSchedule schedule)
     {
+        // [ASISTWEB][SEC.03.04]
         if (HasValidTimeRange(schedule.CheckInTime1, schedule.CheckInTime2))
         {
             return new ScheduleWindow(
-                CombineDateWithTime(bounds.ScheduledStart.Date, schedule.CheckInTime1!.Value),
-                CombineDateWithTime(bounds.ScheduledStart.Date, schedule.CheckInTime2!.Value));
+                bounds.ScheduledStart - schedule.CheckInTime1!.Value.ToTimeSpan(),
+                bounds.ScheduledStart + schedule.CheckInTime2!.Value.ToTimeSpan());
         }
 
         var halfSchedule = TimeSpan.FromMinutes((bounds.ScheduledEnd - bounds.ScheduledStart).TotalMinutes / 2d);
@@ -455,12 +481,12 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
     private static ScheduleWindow ResolveExitWindow(ScheduleBounds bounds, AttendanceSchedule schedule)
     {
+        // [ASISTWEB][SEC.03.04]
         if (HasValidTimeRange(schedule.CheckOutTime1, schedule.CheckOutTime2))
         {
-            var baseDate = bounds.ScheduledEnd.Date;
             return new ScheduleWindow(
-                CombineDateWithTime(baseDate, schedule.CheckOutTime1!.Value),
-                CombineDateWithTime(baseDate, schedule.CheckOutTime2!.Value));
+                bounds.ScheduledEnd - schedule.CheckOutTime1!.Value.ToTimeSpan(),
+                bounds.ScheduledEnd + schedule.CheckOutTime2!.Value.ToTimeSpan());
         }
 
         var halfSchedule = TimeSpan.FromMinutes((bounds.ScheduledEnd - bounds.ScheduledStart).TotalMinutes / 2d);
@@ -485,35 +511,30 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     private static bool HasValidTimeRange(TimeOnly? start, TimeOnly? end)
         => start.HasValue && end.HasValue && start.Value < end.Value;
 
-    private static bool IsWithinWindow(DateTime timestamp, DateTime start, DateTime end)
+    private static bool IsWithinEntryWindow(DateTime timestamp, DateTime start, DateTime end)
+        => timestamp >= start && timestamp < end;
+
+    private static bool IsWithinExitWindow(DateTime timestamp, DateTime start, DateTime end)
         => timestamp >= start && timestamp <= end;
 
     private static DateTime CombineDateWithTime(DateTime date, TimeOnly time)
         => date.Date.Add(time.ToTimeSpan());
 
-    private static TimeSpan ApplyAutomaticBreakDeduction(string? scheduleName, TimeSpan duration)
+    private static TimeSpan ApplyAutomaticBreakDeduction(AttendanceSchedule? schedule, TimeSpan duration)
     {
         if (duration <= TimeSpan.Zero)
         {
             return TimeSpan.Zero;
         }
 
-        if (string.IsNullOrWhiteSpace(scheduleName))
+        var breakMinutes = schedule?.BreakMinutes ?? 0;
+        if (breakMinutes <= 0)
         {
             return duration;
         }
 
-        if (scheduleName.StartsWith("HR", StringComparison.OrdinalIgnoreCase))
-        {
-            return duration > HrBreakDeduction ? duration - HrBreakDeduction : TimeSpan.Zero;
-        }
-
-        if (scheduleName.StartsWith("HN", StringComparison.OrdinalIgnoreCase))
-        {
-            return duration > HnBreakDeduction ? duration - HnBreakDeduction : TimeSpan.Zero;
-        }
-
-        return duration;
+        var breakDuration = TimeSpan.FromMinutes(breakMinutes);
+        return duration > breakDuration ? duration - breakDuration : TimeSpan.Zero;
     }
 
     private static TimeSpan GetOverlap(DateTime startA, DateTime endA, DateTime startB, DateTime endB)
@@ -526,4 +547,463 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     private readonly record struct ScheduleBounds(DateTime ScheduledStart, DateTime ScheduledEnd);
     private readonly record struct ScheduleWindow(DateTime Start, DateTime End);
     private readonly record struct ExceptionResolution(AttendanceException? SelectedException, TimeSpan? JustifiedDuration, decimal? JustifiedDayFraction, bool CoversWholeScheduledDay);
+
+    // [ASISTWEB][SEC.02][SEC.03][SEC.04]
+    private static void AccumulateFinalDurations(AttendanceDayResult result, AttendancePersonAccumulation accumulation)
+    {
+        if (result.EffectiveWorkDuration.HasValue && result.EffectiveWorkDuration.Value > TimeSpan.Zero)
+        {
+            accumulation.HorasEfectivas += result.EffectiveWorkDuration.Value;
+        }
+
+        if (result.PresenceDuration.HasValue && result.PresenceDuration.Value > TimeSpan.Zero)
+        {
+            accumulation.HorasDePermanencia += result.PresenceDuration.Value;
+        }
+
+        if (result.LateEntryDuration.HasValue && result.LateEntryDuration.Value > TimeSpan.Zero)
+        {
+            accumulation.TardanzasDelDia += result.LateEntryDuration.Value;
+        }
+
+        if (result.EarlyExitDuration.HasValue && result.EarlyExitDuration.Value > TimeSpan.Zero)
+        {
+            accumulation.SalidasTempranoDelDia += result.EarlyExitDuration.Value;
+        }
+
+        if (result.OvertimeDuration.HasValue && result.OvertimeDuration.Value > TimeSpan.Zero)
+        {
+            accumulation.HorasExtras += result.OvertimeDuration.Value;
+        }
+    }
+
+    private static void ApplyNoScheduleLabels(AttendanceCalculationContext context, AttendanceDayResult result)
+    {
+        if (context.IsHoliday)
+        {
+            result.ScheduleDisplayText = "FERIADO __:__ - __:__";
+            return;
+        }
+
+        if (context.IsWeekend)
+        {
+            result.ScheduleDisplayText = "FIN DE SEMANA __:__ - __:__";
+            return;
+        }
+
+        result.ScheduleDisplayText = "SIN TURNO __:__ - __:__";
+    }
+
+    private static void ApplySingleMarkExceptionAccumulation(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation)
+    {
+        if (context.Exceptions.Any(x => x.Unit == 3))
+        {
+            accumulation.DiasJustificados++;
+        }
+    }
+
+    private static void ApplyNoScheduleExceptionAccumulation(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendancePersonAccumulation accumulation)
+    {
+        if (context.Exceptions.Any(x => x.Unit == 3))
+        {
+            accumulation.DiasJustificados++;
+            return;
+        }
+
+        accumulation.HorasJustificadas += CalculateUniqueExceptionMinutes(context.Exceptions);
+    }
+
+    private static void ApplyAbsenceWithSchedule(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, string observationCode)
+    {
+        result.IsAbsent = true;
+        result.ScheduleObservationCode = observationCode;
+        result.ScheduleDisplayText = BuildAssignedScheduleDisplayText(context, scheduleBounds, observationCode);
+        accumulation.DiasConFalta++;
+        ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
+
+        if (context.HasExceptions)
+        {
+            accumulation.DiasConFalta = Math.Max(0, accumulation.DiasConFalta - 1);
+            result.IsAbsent = false;
+            result.EffectiveWorkDuration = TimeSpan.Zero;
+            result.PresenceDuration = TimeSpan.Zero;
+            result.EntryMark = null;
+            result.ExitMark = null;
+
+            if (context.IsHoliday && context.Parameters.ShowHoliday)
+            {
+                accumulation.FeriadosConTurno++;
+            }
+
+            if (context.Exceptions.Any(x => x.Unit == 3))
+            {
+                accumulation.DiasJustificados++;
+            }
+            else
+            {
+                var programmed = scheduleBounds.ScheduledEnd - scheduleBounds.ScheduledStart - TimeSpan.FromMinutes(context.Schedule?.BreakMinutes ?? 0);
+                if (programmed > TimeSpan.Zero)
+                {
+                    accumulation.HorasJustificadas += programmed;
+                }
+            }
+        }
+    }
+
+    private static void ApplyScheduledExceptionRules(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    {
+        if (!context.HasExceptions)
+        {
+            return;
+        }
+
+        result.ExceptionDisplayText = BuildExceptionDisplayText(context, false);
+
+        if (context.Exceptions.Any(x => x.Unit == 3))
+        {
+            accumulation.DiasJustificados++;
+            result.LateEntryDuration = null;
+            result.EarlyExitDuration = null;
+            result.EffectiveWorkDuration = RecalculateEffectiveDuration(state.CaseKind, scheduleBounds, state.ActualEntryMark, state.ActualExitMark, TimeSpan.Zero, TimeSpan.Zero, context.Schedule?.BreakMinutes ?? 0);
+            return;
+        }
+
+        var justifiedLate = CalculateScheduledLateExceptionMinutes(context, result, scheduleBounds, state);
+        var justifiedEarly = CalculateScheduledEarlyExceptionMinutes(context, result, scheduleBounds, state);
+
+        var adjustedLate = (result.LateEntryDuration ?? TimeSpan.Zero) - justifiedLate;
+        var adjustedEarly = (result.EarlyExitDuration ?? TimeSpan.Zero) - justifiedEarly;
+
+        result.LateEntryDuration = adjustedLate > TimeSpan.Zero ? adjustedLate : null;
+        result.EarlyExitDuration = adjustedEarly > TimeSpan.Zero ? adjustedEarly : null;
+
+        if (justifiedLate > TimeSpan.Zero || justifiedEarly > TimeSpan.Zero)
+        {
+            accumulation.HorasJustificadas += justifiedLate + justifiedEarly;
+            result.JustifiedDuration = justifiedLate + justifiedEarly;
+        }
+
+        result.EffectiveWorkDuration = RecalculateEffectiveDuration(
+            state.CaseKind,
+            scheduleBounds,
+            state.ActualEntryMark,
+            state.ActualExitMark,
+            result.LateEntryDuration ?? TimeSpan.Zero,
+            result.EarlyExitDuration ?? TimeSpan.Zero,
+            context.Schedule?.BreakMinutes ?? 0);
+    }
+
+    private static TimeSpan CalculateScheduledLateExceptionMinutes(AttendanceCalculationContext context, AttendanceDayResult result, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    {
+        var lateDuration = result.LateEntryDuration ?? TimeSpan.Zero;
+        if (lateDuration <= TimeSpan.Zero)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var entry = state.ActualEntryMark;
+        var scheduleStart = scheduleBounds.ScheduledStart;
+        var intervalStart = scheduleStart;
+        var intervalEnd = entry;
+
+        if (entry <= scheduleStart)
+        {
+            return TimeSpan.Zero;
+        }
+
+        if (state.CaseKind == ScheduledCaseKind.MissingEntry && context.Parameters.NoInAbsent == 1)
+        {
+            intervalEnd = scheduleStart.AddMinutes(Math.Max(0, context.Parameters.MinsNoIn));
+        }
+
+        var justified = CalculateUniqueExceptionMinutes(context.Exceptions, intervalStart, intervalEnd);
+        return Min(justified, lateDuration);
+    }
+
+    private static TimeSpan CalculateScheduledEarlyExceptionMinutes(AttendanceCalculationContext context, AttendanceDayResult result, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    {
+        var earlyDuration = result.EarlyExitDuration ?? TimeSpan.Zero;
+        if (earlyDuration <= TimeSpan.Zero)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var exit = state.ActualExitMark;
+        var scheduleEnd = scheduleBounds.ScheduledEnd;
+        var intervalStart = exit;
+        var intervalEnd = scheduleEnd;
+
+        if (exit >= scheduleEnd)
+        {
+            return TimeSpan.Zero;
+        }
+
+        if (state.CaseKind == ScheduledCaseKind.MissingExit && context.Parameters.NoOutAbsent == 1)
+        {
+            intervalStart = scheduleEnd.AddMinutes(-Math.Max(0, context.Parameters.MinsNoLeave));
+        }
+
+        var justified = CalculateUniqueExceptionMinutes(context.Exceptions, intervalStart, intervalEnd);
+        return Min(justified, earlyDuration);
+    }
+
+    private static ScheduledScenarioState ProcessMissingEntryScenario(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark exitMark)
+    {
+        if (context.Parameters.NoInAbsent == 2)
+        {
+            result.InconsistencyKind = AttendanceInconsistencyKind.MissingEntry;
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(e)");
+            return ScheduledScenarioState.Terminal();
+        }
+
+        var assumedEntry = scheduleBounds.ScheduledStart;
+        var late = context.Parameters.NoInAbsent == 1 ? TimeSpan.FromMinutes(Math.Max(0, context.Parameters.MinsNoIn)) : TimeSpan.Zero;
+        result.LateEntryDuration = late > TimeSpan.Zero ? late : null;
+        result.EarlyExitDuration = CalculateEarlyExitUsingTolerance(scheduleBounds.ScheduledEnd, exitMark.Timestamp, context.Schedule?.EarlyToleranceMinutes ?? 0);
+
+        if (TriggersEarlyAbsence(context, result.EarlyExitDuration))
+        {
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(s*)");
+            return ScheduledScenarioState.Terminal();
+        }
+
+        result.PresenceDuration = CalculatePresenceDuration(scheduleBounds.ScheduledStart, exitMark.Timestamp, context.Schedule?.BreakMinutes ?? 0);
+        result.EffectiveWorkDuration = RecalculateEffectiveDuration(ScheduledCaseKind.MissingEntry, scheduleBounds, assumedEntry, exitMark.Timestamp, late, result.EarlyExitDuration ?? TimeSpan.Zero, context.Schedule?.BreakMinutes ?? 0);
+        result.InconsistencyKind = AttendanceInconsistencyKind.MissingEntry;
+        return ScheduledScenarioState.Continue(ScheduledCaseKind.MissingEntry, assumedEntry, exitMark.Timestamp, assumedEntry, exitMark.Timestamp);
+    }
+
+    private static ScheduledScenarioState ProcessMissingExitScenario(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark entryMark)
+    {
+        if (context.Parameters.NoOutAbsent == 2)
+        {
+            result.InconsistencyKind = AttendanceInconsistencyKind.MissingExit;
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(s)");
+            return ScheduledScenarioState.Terminal();
+        }
+
+        var assumedExit = scheduleBounds.ScheduledEnd;
+        var early = context.Parameters.NoOutAbsent == 1 ? TimeSpan.FromMinutes(Math.Max(0, context.Parameters.MinsNoLeave)) : TimeSpan.Zero;
+        result.EarlyExitDuration = early > TimeSpan.Zero ? early : null;
+        result.LateEntryDuration = CalculateLateUsingTolerance(scheduleBounds.ScheduledStart, entryMark.Timestamp, context.Schedule?.LateToleranceMinutes ?? 0);
+
+        if (TriggersLateAbsence(context, result.LateEntryDuration))
+        {
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(e*)");
+            return ScheduledScenarioState.Terminal();
+        }
+
+        result.PresenceDuration = CalculatePresenceDuration(scheduleBounds.ScheduledStart, assumedExit, context.Schedule?.BreakMinutes ?? 0);
+        result.EffectiveWorkDuration = RecalculateEffectiveDuration(ScheduledCaseKind.MissingExit, scheduleBounds, entryMark.Timestamp, assumedExit, result.LateEntryDuration ?? TimeSpan.Zero, early, context.Schedule?.BreakMinutes ?? 0);
+        result.InconsistencyKind = AttendanceInconsistencyKind.MissingExit;
+        return ScheduledScenarioState.Continue(ScheduledCaseKind.MissingExit, entryMark.Timestamp, assumedExit, entryMark.Timestamp, assumedExit);
+    }
+
+    private static ScheduledScenarioState ProcessEntryAndExitScenario(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark entryMark, AttendanceMark exitMark)
+    {
+        var late = CalculateLateUsingTolerance(scheduleBounds.ScheduledStart, entryMark.Timestamp, context.Schedule?.LateToleranceMinutes ?? 0);
+        result.LateEntryDuration = late > TimeSpan.Zero ? late : null;
+
+        if (TriggersLateAbsence(context, result.LateEntryDuration))
+        {
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(e*)");
+            return ScheduledScenarioState.Terminal();
+        }
+
+        var early = CalculateEarlyExitUsingTolerance(scheduleBounds.ScheduledEnd, exitMark.Timestamp, context.Schedule?.EarlyToleranceMinutes ?? 0);
+        result.EarlyExitDuration = early > TimeSpan.Zero ? early : null;
+
+        if (TriggersEarlyAbsence(context, result.EarlyExitDuration))
+        {
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(s*)");
+            return ScheduledScenarioState.Terminal();
+        }
+
+        result.PresenceDuration = CalculatePresenceDuration(scheduleBounds.ScheduledStart, exitMark.Timestamp, context.Schedule?.BreakMinutes ?? 0);
+        result.EffectiveWorkDuration = RecalculateEffectiveDuration(ScheduledCaseKind.EntryAndExit, scheduleBounds, entryMark.Timestamp, exitMark.Timestamp, late, early, context.Schedule?.BreakMinutes ?? 0);
+        return ScheduledScenarioState.Continue(ScheduledCaseKind.EntryAndExit, entryMark.Timestamp, exitMark.Timestamp, entryMark.Timestamp, exitMark.Timestamp);
+    }
+
+    private static TimeSpan RecalculateEffectiveDuration(ScheduledCaseKind caseKind, ScheduleBounds scheduleBounds, DateTime actualEntry, DateTime actualExit, TimeSpan late, TimeSpan early, int breakMinutes)
+    {
+        var breakDuration = TimeSpan.FromMinutes(Math.Max(0, breakMinutes));
+        TimeSpan value = caseKind switch
+        {
+            ScheduledCaseKind.MissingEntry => actualExit >= scheduleBounds.ScheduledEnd
+                ? scheduleBounds.ScheduledEnd - scheduleBounds.ScheduledStart - late - early - breakDuration
+                : actualExit - scheduleBounds.ScheduledStart - late - breakDuration,
+            ScheduledCaseKind.MissingExit => actualEntry <= scheduleBounds.ScheduledStart
+                ? scheduleBounds.ScheduledEnd - scheduleBounds.ScheduledStart - late - early - breakDuration
+                : scheduleBounds.ScheduledEnd - actualEntry - early - breakDuration,
+            _ => scheduleBounds.ScheduledEnd - scheduleBounds.ScheduledStart - late - early - breakDuration
+        };
+
+        return value > TimeSpan.Zero ? value : TimeSpan.Zero;
+    }
+
+    private static TimeSpan CalculateLateUsingTolerance(DateTime scheduledStart, DateTime actualEntry, int toleranceMinutes)
+    {
+        var diff = actualEntry <= scheduledStart ? TimeSpan.Zero : actualEntry - scheduledStart;
+        return diff.TotalMinutes > Math.Max(0, toleranceMinutes)
+            ? diff
+            : TimeSpan.Zero;
+    }
+
+    private static TimeSpan CalculateEarlyExitUsingTolerance(DateTime scheduledEnd, DateTime actualExit, int toleranceMinutes)
+    {
+        var diff = actualExit >= scheduledEnd ? TimeSpan.Zero : scheduledEnd - actualExit;
+        return diff.TotalMinutes > Math.Max(0, toleranceMinutes)
+            ? diff
+            : TimeSpan.Zero;
+    }
+
+    private static bool TriggersLateAbsence(AttendanceCalculationContext context, TimeSpan? late)
+        => context.Parameters.LateAbsent && context.Parameters.MinsLateAbsent > 0 && late.HasValue && late.Value.TotalMinutes > context.Parameters.MinsLateAbsent;
+
+    private static bool TriggersEarlyAbsence(AttendanceCalculationContext context, TimeSpan? early)
+        => context.Parameters.EarlyAbsent && context.Parameters.MinsEarlyAbsent > 0 && early.HasValue && early.Value.TotalMinutes > context.Parameters.MinsEarlyAbsent;
+
+    private static TimeSpan SubtractBreak(TimeSpan duration, int breakMinutes)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var deduction = TimeSpan.FromMinutes(Math.Max(0, breakMinutes));
+        var value = duration - deduction;
+        return value > TimeSpan.Zero ? value : TimeSpan.Zero;
+    }
+
+    private static TimeSpan Min(TimeSpan left, TimeSpan right)
+        => left <= right ? left : right;
+
+    private static TimeSpan CalculatePresenceDuration(DateTime scheduledStart, DateTime actualExit, int breakMinutes)
+        => SubtractBreak(actualExit - scheduledStart, breakMinutes);
+
+    private readonly record struct ScheduledScenarioState(
+        ScheduledCaseKind CaseKind,
+        DateTime EntryForCalculations,
+        DateTime ExitForCalculations,
+        DateTime ActualEntryMark,
+        DateTime ActualExitMark,
+        bool IsTerminal)
+    {
+        public static ScheduledScenarioState Continue(ScheduledCaseKind caseKind, DateTime entryForCalculations, DateTime exitForCalculations, DateTime actualEntryMark, DateTime actualExitMark)
+            => new(caseKind, entryForCalculations, exitForCalculations, actualEntryMark, actualExitMark, false);
+
+        public static ScheduledScenarioState Terminal()
+            => new(ScheduledCaseKind.None, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, true);
+    }
+
+    private enum ScheduledCaseKind
+    {
+        None = 0,
+        MissingEntry = 1,
+        MissingExit = 2,
+        EntryAndExit = 3
+    }
+
+    private static TimeSpan CalculateOverlapForRange(IReadOnlyList<AttendanceException> exceptions, DateTime rangeStart, DateTime rangeEnd)
+    {
+        return CalculateUniqueExceptionMinutes(exceptions, rangeStart, rangeEnd);
+    }
+
+    private static TimeSpan CalculateUniqueExceptionMinutes(IReadOnlyList<AttendanceException> exceptions)
+    {
+        if (exceptions.Count == 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var ranges = exceptions
+            .Where(x => x.Unit is 1 or 2 && x.EndDateTime.HasValue)
+            .Select(x => (Start: x.StartDateTime, End: x.EndDateTime!.Value))
+            .OrderBy(x => x.Start)
+            .ToList();
+
+        return SumUniqueRanges(ranges);
+    }
+
+    private static TimeSpan CalculateUniqueExceptionMinutes(IReadOnlyList<AttendanceException> exceptions, DateTime rangeStart, DateTime rangeEnd)
+    {
+        var ranges = exceptions
+            .Where(x => x.Unit is 1 or 2 && x.EndDateTime.HasValue)
+            .Select(x => (Start: x.StartDateTime < rangeStart ? rangeStart : x.StartDateTime, End: x.EndDateTime!.Value > rangeEnd ? rangeEnd : x.EndDateTime!.Value))
+            .Where(x => x.End > x.Start)
+            .OrderBy(x => x.Start)
+            .ToList();
+
+        return SumUniqueRanges(ranges);
+    }
+
+    private static TimeSpan SumUniqueRanges(IReadOnlyList<(DateTime Start, DateTime End)> ranges)
+    {
+        if (ranges.Count == 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var total = TimeSpan.Zero;
+        var currentStart = ranges[0].Start;
+        var currentEnd = ranges[0].End;
+
+        for (var i = 1; i < ranges.Count; i++)
+        {
+            var range = ranges[i];
+            if (range.Start <= currentEnd)
+            {
+                if (range.End > currentEnd)
+                {
+                    currentEnd = range.End;
+                }
+
+                continue;
+            }
+
+            total += currentEnd - currentStart;
+            currentStart = range.Start;
+            currentEnd = range.End;
+        }
+
+        total += currentEnd - currentStart;
+        return total;
+    }
+
+    private static string BuildExceptionDisplayText(AttendanceCalculationContext context, bool isNoSchedule)
+    {
+        if (!context.HasExceptions)
+        {
+            return string.Empty;
+        }
+
+        var ordered = isNoSchedule
+            ? context.Exceptions.OrderBy(x => x.Classify == 128 ? 0 : 1).ThenBy(x => x.Unit).ThenBy(x => x.Classify).ThenBy(x => x.LeaveId)
+            : context.Exceptions.OrderBy(x => x.Classify == 0 ? 0 : 1).ThenBy(x => x.Unit).ThenBy(x => x.Classify).ThenBy(x => x.LeaveId);
+
+        return string.Join(", ", ordered.Select(x => x.LeaveName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string BuildInitialScheduleDisplayText(AttendanceCalculationContext context)
+    {
+        if (context.Schedule is null || !context.Schedule.HasSchedule)
+        {
+            return string.Empty;
+        }
+
+        var startText = context.Schedule.ScheduledStartTime?.ToString("HH:mm") ?? "__:__";
+        var endText = context.Schedule.ScheduledEndTime?.ToString("HH:mm") ?? "__:__";
+        return $"{context.Schedule.ScheduleName} {startText} - {endText}";
+    }
+
+    private static string BuildAssignedScheduleDisplayText(AttendanceCalculationContext context, ScheduleBounds bounds, string observationCode)
+    {
+        var suffix = context.IsHoliday && context.Parameters.ShowHoliday
+            ? "(FER)"
+            : !context.IsHoliday && context.IsWeekend
+                ? "(FDS)"
+                : string.Empty;
+
+        return $"{context.Schedule?.ScheduleName} {suffix}{observationCode} {bounds.ScheduledStart:HH:mm} - {bounds.ScheduledEnd:HH:mm}".Trim();
+    }
 }

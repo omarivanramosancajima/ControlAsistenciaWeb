@@ -1,0 +1,14 @@
+@model ControlAsistencia.Web.Models.ExcepcionDTO
+@{ ViewData["Title"] = "Eliminar Excepción"; }
+<div class="card"><div class="card-header"><h5 class="mb-0">Eliminar Excepción</h5></div><div class="card-body">
+@if (TempData["ErrorMessage"] is string err) { <div class="alert alert-danger">@err</div> }
+<dl class="row">
+    <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">@Model.LeaveName</dd>
+    <dt class="col-sm-3">Cantidad Equiv.</dt><dd class="col-sm-9">@Model.MinUnit.ToString("0.00")</dd>
+    <dt class="col-sm-3">Unidad de Medida</dt><dd class="col-sm-9">@(Model.Unit == 1 ? "Hora" : Model.Unit == 2 ? "Minuto" : "Día")</dd>
+    <dt class="col-sm-3">Abreviatura</dt><dd class="col-sm-9">@Model.ReportSymbol</dd>
+    <dt class="col-sm-3">Excepción Normal</dt><dd class="col-sm-9">@(Model.Classify ? "SI" : "NO")</dd>
+</dl>
+<form asp-action="DeleteConfirmed" method="post">@Html.AntiForgeryToken()<input type="hidden" name="leaveId" value="@Model.LeaveId" />
+<button class="btn btn-danger" type="submit">Confirmar eliminación</button> <a class="btn btn-secondary" asp-action="Index">Cancelar</a>
+</form></div></div>

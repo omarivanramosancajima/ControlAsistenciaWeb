@@ -29,6 +29,12 @@ public class AttendanceCalculationContextBuilder : IAttendanceCalculationContext
 
     public async Task<AttendanceCalculationContext?> BuildAsync(int personId, DateOnly date)
     {
+        // [ASISTWEB][SEC.00]
+        // [ASISTWEB][SEC.01]
+        // [ASISTWEB][SEC.01.01]
+        // [ASISTWEB][SEC.01.02]
+        // [ASISTWEB][SEC.01.03]
+        // [ASISTWEB][SEC.01.04]
         var person = await _personProvider.GetByPersonIdAsync(personId);
         if (person is null)
         {
@@ -50,6 +56,9 @@ public class AttendanceCalculationContextBuilder : IAttendanceCalculationContext
             PersonName = person.PersonName,
             DepartmentId = person.DepartmentId,
             DepartmentName = person.DepartmentName,
+            CompanyTaxId = person.CompanyTaxId,
+            CompanyName = person.CompanyName,
+            CompanyResolutionDiagnostic = person.CompanyResolutionDiagnostic,
             CalculationDate = date,
             Schedule = schedule,
             Marks = marks,
@@ -58,25 +67,40 @@ public class AttendanceCalculationContextBuilder : IAttendanceCalculationContext
             Exceptions = exceptions,
             IsHoliday = holiday.IsHoliday,
             HolidayName = holiday.HolidayName,
-            IsWeekend = IsWeekend(date, parameters.Weekends),
+            IsWeekend = IsWeekend(date, parameters.WeekendsRaw),
             IsNoSchedule = schedule is null || !schedule.HasSchedule
         };
     }
 
-    private static bool IsWeekend(DateOnly date, int weekends)
+    // [ASISTWEB][SEC.01.02]
+    private static bool IsWeekend(DateOnly date, string? weekendsRaw)
     {
-        var dayBit = date.DayOfWeek switch
+        if (string.IsNullOrWhiteSpace(weekendsRaw))
+        {
+            return false;
+        }
+
+        var dayValue = date.DayOfWeek switch
         {
             DayOfWeek.Sunday => 1,
             DayOfWeek.Monday => 2,
-            DayOfWeek.Tuesday => 4,
-            DayOfWeek.Wednesday => 8,
-            DayOfWeek.Thursday => 16,
-            DayOfWeek.Friday => 32,
-            DayOfWeek.Saturday => 64,
+            DayOfWeek.Tuesday => 3,
+            DayOfWeek.Wednesday => 4,
+            DayOfWeek.Thursday => 5,
+            DayOfWeek.Friday => 6,
+            DayOfWeek.Saturday => 7,
             _ => 0
         };
 
-        return (weekends & dayBit) == dayBit;
+        if (dayValue == 0)
+        {
+            return false;
+        }
+
+        return weekendsRaw
+            .Split(',', StringSplitOptions.TrimEntries)
+            .Where(static x => !string.IsNullOrWhiteSpace(x))
+            .Select(static x => int.TryParse(x, out var parsed) ? parsed : 0)
+            .Any(value => value == dayValue);
     }
 }

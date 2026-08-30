@@ -1,0 +1,53 @@
+@model IEnumerable<ControlAsistencia.Web.Models.ExcepcionDTO>
+@{
+    ViewData["Title"] = "Permisos y Justificaciones";
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Permisos y Justificaciones</h5>
+        <a class="btn btn-primary btn-sm" asp-action="Create">Nuevo</a>
+    </div>
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string ok)
+        {
+            <div class="alert alert-success">@ok</div>
+        }
+        @if (TempData["ErrorMessage"] is string err)
+        {
+            <div class="alert alert-danger">@err</div>
+        }
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered align-middle">
+                <thead><tr><th>Nombre</th><th>Cantidad Equiv.</th><th>Unidad de Medida</th><th>Abreviatura</th><th>Excepción Normal</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.LeaveName</td>
+                        <td>@item.MinUnit.ToString("0.00")</td>
+                        <td>@(item.Unit == 1 ? "Hora" : item.Unit == 2 ? "Minuto" : "Día")</td>
+                        <td>@item.ReportSymbol</td>
+                        <td>@(item.Classify ? "SI" : "NO")</td>
+                        <td class="text-nowrap">
+                            <a class="btn btn-sm btn-warning" asp-action="Edit" asp-route-id="@item.LeaveId">Editar</a>
+                            <a class="btn btn-sm btn-danger" asp-action="Delete" asp-route-id="@item.LeaveId">Eliminar</a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        @{
+            var currentPage = (int)(ViewBag.CurrentPage ?? 1);
+            var totalPages = (int)(ViewBag.TotalPages ?? 1);
+        }
+        <nav><ul class="pagination mb-0">
+            <li class="page-item @(currentPage <= 1 ? "disabled" : "")"><a class="page-link" asp-action="Index" asp-route-page="@(currentPage - 1)">Anterior</a></li>
+            <li class="page-item disabled"><span class="page-link">@currentPage / @totalPages</span></li>
+            <li class="page-item @(currentPage >= totalPages ? "disabled" : "")"><a class="page-link" asp-action="Index" asp-route-page="@(currentPage + 1)">Siguiente</a></li>
+        </ul></nav>
+    </div>
+</div>

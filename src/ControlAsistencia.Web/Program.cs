@@ -21,6 +21,7 @@ builder.Services.AddScoped<IEmpleadoRepository, EmpleadoRepository>();
 builder.Services.AddScoped<IHorarioRepository, HorarioRepository>();
 builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
 builder.Services.AddScoped<IFeriadoRepository, FeriadoRepository>();
+builder.Services.AddScoped<IExcepcionRepository, ExcepcionRepository>();
 builder.Services.AddScoped<ITurnosEmpleadoRepository, TurnosEmpleadoRepository>();
 builder.Services.AddScoped<IAttendanceReportRepository, AttendanceReportRepository>();
 builder.Services.AddScoped<IAttendancePersonProvider, AttendancePersonProvider>();

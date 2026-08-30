@@ -16,6 +16,9 @@ public class AttendanceScheduleProvider : IAttendanceScheduleProvider
 
     public async Task<AttendanceSchedule?> GetScheduleAsync(int personId, DateOnly date)
     {
+        // [ASISTWEB][SEC.01.04]
+        // [ASISTWEB][SEC.03.01]
+        // [ASISTWEB][SEC.03.02]
         const string assignmentSql = @"
 SELECT TOP (1)
     UOR.NUM_OF_RUN_ID AS ShiftId,
@@ -41,12 +44,21 @@ SELECT TOP (1)
     S.CheckInTime2 AS CheckInTime2DateTime,
     S.CheckOutTime1 AS CheckOutTime1DateTime,
     S.CheckOutTime2 AS CheckOutTime2DateTime,
+    D.NUM_RUNID AS NumRunId,
+    D.SDAYS AS ScheduleDay,
+    D.EDAYS AS ScheduleEndDay,
     D.SDAYS AS StartDayOffset,
     D.EDAYS AS EndDayOffset,
     S.LateMinutes AS LateToleranceMinutes,
     S.EarlyMinutes AS EarlyToleranceMinutes,
     S.CheckIn AS CheckInMode,
-    S.CheckOut AS CheckOutMode
+    S.CheckOut AS CheckOutMode,
+    CASE
+        WHEN S.SCHNAME LIKE 'HV%' THEN 45
+        WHEN S.SCHNAME LIKE 'HN%' THEN 90
+        WHEN S.SCHNAME LIKE 'HR%' THEN 60
+        ELSE 0
+    END AS BreakMinutes
 FROM dbo.NUM_RUN_DEIL D WITH (NOLOCK)
 LEFT JOIN dbo.SchClass S WITH (NOLOCK) ON S.schClassid = D.SCHCLASSID
 WHERE D.NUM_RUNID = @ShiftId
@@ -67,7 +79,7 @@ ORDER BY D.SDAYS ASC;";
                 return null;
             }
 
-            var scheduleDay = ResolveScheduleDay(date, assignment.ShiftAssignmentStartDateTime, assignment.Units, assignment.Cycle);
+            var scheduleDay = ResolveScheduleDay(date);
             var detail = await connection.QueryFirstOrDefaultAsync<ScheduleDetailRow>(detailSql, new
             {
                 assignment.ShiftId,
@@ -82,6 +94,9 @@ ORDER BY D.SDAYS ASC;";
                 Units = assignment.Units,
                 ShiftAssignmentStartDate = DateOnly.FromDateTime(assignment.ShiftAssignmentStartDateTime.Date),
                 ShiftAssignmentEndDate = DateOnly.FromDateTime(assignment.ShiftAssignmentEndDateTime.Date),
+                NumRunId = detail?.NumRunId,
+                ScheduleDay = detail?.ScheduleDay,
+                ScheduleEndDay = detail?.ScheduleEndDay,
                 ScheduleClassId = detail?.ScheduleClassId,
                 ScheduleName = detail?.ScheduleName,
                 ScheduledStartTime = detail?.ScheduledStartDateTime is DateTime start ? TimeOnly.FromDateTime(start) : null,
@@ -97,6 +112,7 @@ ORDER BY D.SDAYS ASC;";
                 EarlyToleranceMinutes = detail?.EarlyToleranceMinutes,
                 CheckInMode = detail?.CheckInMode,
                 CheckOutMode = detail?.CheckOutMode,
+                BreakMinutes = detail?.BreakMinutes ?? 0,
                 HasSchedule = detail is not null && detail.ScheduleClassId.HasValue
             };
         }
@@ -110,21 +126,19 @@ ORDER BY D.SDAYS ASC;";
         }
     }
 
-    private static int ResolveScheduleDay(DateOnly targetDate, DateTime assignmentStartDate, short? units, short? cycle)
+    private static int ResolveScheduleDay(DateOnly targetDate)
     {
-        var totalDays = TurnoCycleDayHelper.GetTotalDays(units ?? -1, cycle ?? 0);
-        if (totalDays <= 0)
+        return targetDate.DayOfWeek switch
         {
-            return 1;
-        }
-
-        var daysFromStart = targetDate.DayNumber - DateOnly.FromDateTime(assignmentStartDate.Date).DayNumber;
-        if (daysFromStart < 0)
-        {
-            return 1;
-        }
-
-        return (daysFromStart % totalDays) + 1;
+            DayOfWeek.Sunday => 1,
+            DayOfWeek.Monday => 2,
+            DayOfWeek.Tuesday => 3,
+            DayOfWeek.Wednesday => 4,
+            DayOfWeek.Thursday => 5,
+            DayOfWeek.Friday => 6,
+            DayOfWeek.Saturday => 7,
+            _ => 0
+        };
     }
 
     private sealed class ScheduleAssignmentRow
@@ -139,6 +153,9 @@ ORDER BY D.SDAYS ASC;";
 
     private sealed class ScheduleDetailRow
     {
+        public int? NumRunId { get; set; }
+        public short? ScheduleDay { get; set; }
+        public short? ScheduleEndDay { get; set; }
         public int? ScheduleClassId { get; set; }
         public string? ScheduleName { get; set; }
         public DateTime? ScheduledStartDateTime { get; set; }
@@ -153,5 +170,6 @@ ORDER BY D.SDAYS ASC;";
         public int? EarlyToleranceMinutes { get; set; }
         public int? CheckInMode { get; set; }
         public int? CheckOutMode { get; set; }
+        public int? BreakMinutes { get; set; }
     }
 }

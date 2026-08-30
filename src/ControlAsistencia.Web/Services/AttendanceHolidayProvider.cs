@@ -16,24 +16,20 @@ public class AttendanceHolidayProvider : IAttendanceHolidayProvider
 
     public async Task<AttendanceHolidayInfo> GetHolidayAsync(DateOnly date)
     {
+        // [ASISTWEB][SEC.01.01]
         const string sql = @"
 SELECT TOP (1)
     H.HOLIDAYNAME AS HolidayName
 FROM dbo.HOLIDAYS H WITH (NOLOCK)
-WHERE
-    (H.HOLIDAYYEAR IS NULL OR H.HOLIDAYYEAR = @Year)
-    AND (H.HOLIDAYMONTH IS NULL OR H.HOLIDAYMONTH = @Month)
-    AND H.HOLIDAYDAY = @Day
-ORDER BY H.HOLIDAYYEAR DESC, H.HOLIDAYMONTH DESC;";
+WHERE CAST(H.STARTTIME AS date) = @TargetDate
+ORDER BY H.STARTTIME ASC, H.HOLIDAYID ASC;";
 
         try
         {
             await using var connection = new SqlConnection(_connectionString);
             var holidayName = await connection.QueryFirstOrDefaultAsync<string?>(sql, new
             {
-                Year = date.Year,
-                Month = date.Month,
-                Day = date.Day
+                TargetDate = date.ToDateTime(TimeOnly.MinValue).Date
             });
 
             return new AttendanceHolidayInfo
