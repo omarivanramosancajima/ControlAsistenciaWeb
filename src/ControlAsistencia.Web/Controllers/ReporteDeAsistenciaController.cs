@@ -26,18 +26,41 @@ public class ReporteDeAsistenciaController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado, int page = 1)
     {
-        var model = await _service.GetReportAsync(new AttendanceReportRequest
+        try
         {
-            FechaDesde = fechaDesde,
-            FechaHasta = fechaHasta,
-            Persona = persona,
-            Area = area,
-            Estado = estado,
-            PageNumber = page,
-            PageSize = PageSize
-        });
+            var model = await _service.GetReportAsync(new AttendanceReportRequest
+            {
+                FechaDesde = fechaDesde,
+                FechaHasta = fechaHasta,
+                Persona = persona,
+                Area = area,
+                Estado = estado,
+                PageNumber = page,
+                PageSize = PageSize
+            });
 
-        return View(model);
+            return View(model);
+        }
+        catch (ArgumentException ex)
+        {
+            var filtersModel = await _service.BuildFilterModelAsync(new AttendanceReportRequest
+            {
+                FechaDesde = fechaDesde,
+                FechaHasta = fechaHasta,
+                Persona = persona,
+                Area = area,
+                Estado = estado,
+                PageNumber = page,
+                PageSize = PageSize
+            });
+
+            filtersModel.TotalRecords = 0;
+            filtersModel.Rows = Array.Empty<AttendanceReportRowViewModel>();
+            filtersModel.Persons = Array.Empty<AttendanceReportPersonSummaryViewModel>();
+            filtersModel.ValidationMessage = ex.Message;
+
+            return View(filtersModel);
+        }
     }
 
     [HttpGet]

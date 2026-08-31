@@ -6,4 +6,5 @@ public interface IAttendanceReportService
 {
     Task<AttendanceReportIndexViewModel> GetReportAsync(AttendanceReportRequest request);
     Task<IReadOnlyList<AttendanceReportPersonSummaryViewModel>> GetPersonsAsync(AttendanceReportRequest request);
+    Task<AttendanceReportIndexViewModel> BuildFilterModelAsync(AttendanceReportRequest request);
 }

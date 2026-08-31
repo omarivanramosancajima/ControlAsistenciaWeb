@@ -4,6 +4,7 @@ public class AttendanceReportIndexViewModel
 {
     public DateTime FechaDesde { get; set; }
     public DateTime FechaHasta { get; set; }
+    public string? ValidationMessage { get; set; }
     public string? Persona { get; set; }
     public string? Area { get; set; }
     public string? Estado { get; set; }

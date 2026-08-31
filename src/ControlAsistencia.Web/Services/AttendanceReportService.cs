@@ -5,7 +5,7 @@ namespace ControlAsistencia.Web.Services;
 
 public class AttendanceReportService : IAttendanceReportService
 {
-    private static readonly string[] ReportStates = ["Falta", "Tardanza", "Salida temprana", "Horas extras", "Excepción"];
+    private const int MaxCalendarDays = 62;
 
     private readonly IAttendanceReportRepository _repository;
     private readonly IAttendanceCalculationContextBuilder _contextBuilder;
@@ -24,11 +24,10 @@ public class AttendanceReportService : IAttendanceReportService
     public async Task<AttendanceReportIndexViewModel> GetReportAsync(AttendanceReportRequest request)
     {
         var normalized = NormalizeRequest(request);
-        var company = await _repository.GetCompanyInfoAsync();
         var persons = await BuildPersonsAsync(normalized);
-        var filteredRows = FilterRows(persons, normalized.Estado)
-            .OrderBy(r => r.Personal)
-            .ThenBy(r => r.Fecha)
+        var filteredRows = FilterRows(persons.SelectMany(static x => x.Rows), normalized.Estado)
+            .OrderBy(static r => r.Personal)
+            .ThenBy(static r => r.Fecha)
             .ToList();
 
         var pagedRows = filteredRows
@@ -36,24 +35,39 @@ public class AttendanceReportService : IAttendanceReportService
             .Take(normalized.PageSize)
             .ToList();
 
+        var model = await BuildFilterModelAsync(normalized);
+        model.PageNumber = normalized.PageNumber;
+        model.PageSize = normalized.PageSize;
+        model.TotalRecords = filteredRows.Count;
+        model.Rows = pagedRows;
+        model.Persons = persons;
+        return model;
+    }
+
+    public async Task<AttendanceReportIndexViewModel> BuildFilterModelAsync(AttendanceReportRequest request)
+    {
         var availablePersons = await _repository.GetFilterPersonsAsync(null, null);
         var availableAreas = await _repository.GetAvailableAreasAsync();
+        var availableStates = BuildAvailableStates();
+        var company = await _repository.GetCompanyInfoAsync();
 
         return new AttendanceReportIndexViewModel
         {
-            FechaDesde = normalized.FechaDesde!.Value,
-            FechaHasta = normalized.FechaHasta!.Value,
-            Persona = normalized.Persona,
-            Area = normalized.Area,
-            Estado = normalized.Estado,
-            PageNumber = normalized.PageNumber,
-            PageSize = normalized.PageSize,
-            TotalRecords = filteredRows.Count,
-            Rows = pagedRows,
-            Persons = persons,
-            PersonasDisponibles = availablePersons.Select(static x => x.PersonName).Where(static x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(static x => x).ToList(),
+            FechaDesde = request.FechaDesde?.Date ?? DateTime.Today.AddDays(-30),
+            FechaHasta = request.FechaHasta?.Date ?? DateTime.Today,
+            Persona = NormalizeText(request.Persona),
+            Area = NormalizeText(request.Area),
+            Estado = NormalizeText(request.Estado),
+            PageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber,
+            PageSize = request.PageSize <= 0 ? 20 : request.PageSize,
+            PersonasDisponibles = availablePersons
+                .Select(static x => x.PersonName)
+                .Where(static x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static x => x)
+                .ToList(),
             AreasDisponibles = availableAreas,
-            EstadosDisponibles = ReportStates,
+            EstadosDisponibles = availableStates,
             CompanyTaxId = company?.TaxId ?? string.Empty,
             CompanyName = company?.CompanyName ?? string.Empty
         };
@@ -72,22 +86,26 @@ public class AttendanceReportService : IAttendanceReportService
 
         foreach (var person in filterPersons)
         {
-            var rows = await BuildRowsAsync(person.PersonId, request.FechaDesde!.Value, request.FechaHasta!.Value);
-            var stateRows = FilterRows(rows, request.Estado).ToList();
-            if (stateRows.Count == 0)
+            var dayResults = await BuildDayResultsAsync(person.PersonId, request.FechaDesde!.Value, request.FechaHasta!.Value);
+            var includedResults = dayResults.Where(ShouldIncludeResult).ToList();
+            var filteredResults = FilterResults(includedResults, request.Estado).ToList();
+            if (filteredResults.Count == 0)
             {
                 continue;
             }
 
-            result.Add(BuildPersonSummary(stateRows));
+            result.Add(BuildPersonSummary(filteredResults));
         }
 
-        return result;
+        return result
+            .OrderBy(static x => x.Personal)
+            .ThenBy(static x => x.Codigo)
+            .ToList();
     }
 
-    private async Task<IReadOnlyList<AttendanceReportRowViewModel>> BuildRowsAsync(int personId, DateTime from, DateTime to)
+    private async Task<IReadOnlyList<AttendanceDayResult>> BuildDayResultsAsync(int personId, DateTime from, DateTime to)
     {
-        var rows = new List<AttendanceReportRowViewModel>();
+        var results = new List<AttendanceDayResult>();
 
         for (var current = DateOnly.FromDateTime(from.Date); current <= DateOnly.FromDateTime(to.Date); current = current.AddDays(1))
         {
@@ -97,36 +115,35 @@ public class AttendanceReportService : IAttendanceReportService
                 continue;
             }
 
-            var dayResult = _engine.Calculate(context);
-            if (!ShouldIncludeResult(dayResult))
-            {
-                continue;
-            }
-
-            rows.Add(MapRow(dayResult));
+            results.Add(_engine.Calculate(context));
         }
 
-        return rows;
+        return results;
     }
 
     private static bool ShouldIncludeResult(AttendanceDayResult result)
     {
-        if (result.Schedule?.HasSchedule == true)
+        if (result.Schedule?.HasSchedule == true || result.HasScheduledAssignment)
         {
             return true;
         }
 
-        if (result.EntryMark is not null || result.ExitMark is not null)
+        if (result.IsNoSchedule || result.IsHoliday || result.IsWeekend || result.IsHolidayWithSchedule || result.IsHolidayWithoutSchedule)
         {
             return true;
         }
 
-        if (result.IntermediateMarks.Count > 0)
+        if (result.EntryMark is not null || result.ExitMark is not null || result.IntermediateMarks.Count > 0)
         {
             return true;
         }
 
-        return result.Exception is not null;
+        if (result.Exception is not null || result.HasExceptions || !string.IsNullOrWhiteSpace(result.ExceptionDisplayText))
+        {
+            return true;
+        }
+
+        return result.IsAbsent;
     }
 
     private static AttendanceReportRowViewModel MapRow(AttendanceDayResult result)
@@ -144,68 +161,87 @@ public class AttendanceReportService : IAttendanceReportService
             Salida = FormatMark(result.ExitMark),
             Falta = result.IsAbsent ? "Si" : "No",
             HorasEfectivas = FormatDuration(result.EffectiveWorkDuration),
-            HorasPermiso = FormatDuration(result.PresenceDuration),
+            HorasPermiso = FormatDuration(result.JustifiedDuration),
             TardanzaEntrada = FormatDuration(result.LateEntryDuration),
             SalidaTemprana = FormatDuration(result.EarlyExitDuration),
             HorasExtras = FormatDuration(result.OvertimeDuration),
-            Excepcion = result.Exception?.LeaveName ?? string.Empty,
+            Excepcion = !string.IsNullOrWhiteSpace(result.ExceptionDisplayText)
+                ? result.ExceptionDisplayText
+                : result.Exception?.LeaveName ?? string.Empty,
             MarcasIntermedias = string.Join(' ', result.IntermediateMarks.Select(static x => x.Timestamp.ToString("HH:mm"))),
-            TieneTurno = result.Schedule?.HasSchedule == true,
+            TieneTurno = result.Schedule?.HasSchedule == true || result.HasScheduledAssignment,
             EsFinDeSemana = result.IsWeekend,
             EsFeriado = result.IsHoliday,
             EsFeriadoConTurno = result.IsHolidayWithSchedule,
             EsFeriadoSinTurno = result.IsHolidayWithoutSchedule,
             EsSinTurno = result.IsNoSchedule,
-            EstaJustificado = result.Exception is not null,
+            EstaJustificado = result.Exception is not null || result.HasExceptions || !string.IsNullOrWhiteSpace(result.ExceptionDisplayText),
             HorasJustificadas = FormatDuration(result.JustifiedDuration)
         };
     }
 
-    private static AttendanceReportPersonSummaryViewModel BuildPersonSummary(IReadOnlyList<AttendanceReportRowViewModel> rows)
+    private static AttendanceReportPersonSummaryViewModel BuildPersonSummary(IReadOnlyList<AttendanceDayResult> results)
     {
-        var first = rows[0];
-        var asistencia = rows.Count(static x => !string.Equals(x.Falta, "Si", StringComparison.OrdinalIgnoreCase));
-        var falta = rows.Count(static x => string.Equals(x.Falta, "Si", StringComparison.OrdinalIgnoreCase));
-
-        var horasEfectivas = SumDurations(rows.Select(static x => x.HorasEfectivas));
-        var horasPermiso = SumDurations(rows.Select(static x => x.HorasPermiso));
-        var tardanza = SumDurations(rows.Select(static x => x.TardanzaEntrada));
-        var salidaTemprana = SumDurations(rows.Select(static x => x.SalidaTemprana));
-        var horasExtras = SumDurations(rows.Select(static x => x.HorasExtras));
-        var diasJustificados = rows.Count(static x => !string.IsNullOrWhiteSpace(x.Excepcion));
-        var diasConTurno = rows.Count(static x => x.TieneTurno);
-        var diasSinTurno = rows.Count(static x => x.EsSinTurno);
-        var feriadosConTurno = rows.Count(static x => x.EsFeriadoConTurno);
-        var feriadosSinTurno = rows.Count(static x => x.EsFeriadoSinTurno);
-        var horasJustificadas = SumDurations(rows.Select(static x => x.HorasJustificadas));
+        var first = results[0];
+        var accumulation = results[^1].Accumulation;
+        var rows = results
+            .Select(MapRow)
+            .OrderBy(static x => x.Fecha)
+            .ToList();
 
         return new AttendanceReportPersonSummaryViewModel
         {
-            Codigo = first.Codigo,
-            Dni = first.Dni,
-            Personal = first.Personal,
-            Area = first.Area,
-            HorarioCodigo = first.HorarioCodigo,
-            HorarioRango = first.HorarioRango,
-            DiasAsistencia = asistencia.ToString(),
-            DiasFalta = falta.ToString(),
-            HorasEfectivas = FormatSummaryDuration(horasEfectivas),
-            HorasPermiso = FormatSummaryDuration(horasPermiso),
-            Tardanza = FormatSummaryDuration(tardanza),
-            SalidaTemprana = FormatSummaryDuration(salidaTemprana),
-            HorasExtras = FormatSummaryDuration(horasExtras),
-            DiasJustificados = diasJustificados.ToString(),
-            DiasConTurno = diasConTurno.ToString(),
-            DiasSinTurno = diasSinTurno.ToString(),
-            FeriadosConTurno = feriadosConTurno.ToString(),
-            FeriadosSinTurno = feriadosSinTurno.ToString(),
-            HorasJustificadas = FormatSummaryDuration(horasJustificadas),
-            Rows = rows.OrderBy(static x => x.Fecha).ToList()
+            Codigo = int.TryParse(first.PersonCode, out var code) ? code : 0,
+            Dni = first.PersonDocumentNumber ?? string.Empty,
+            Personal = first.PersonName ?? string.Empty,
+            Area = first.DepartmentName ?? string.Empty,
+            HorarioCodigo = ResolveScheduleCode(first),
+            HorarioRango = ResolveScheduleDisplay(first),
+            DiasAsistencia = accumulation.DiasDeAsistencia.ToString(),
+            DiasFalta = accumulation.DiasConFalta.ToString(),
+            HorasEfectivas = FormatSummaryDuration(accumulation.HorasEfectivas),
+            HorasPermiso = FormatSummaryDuration(accumulation.HorasDePermanencia),
+            Tardanza = FormatSummaryDuration(accumulation.TardanzasDelDia),
+            SalidaTemprana = FormatSummaryDuration(accumulation.SalidasTempranoDelDia),
+            HorasExtras = FormatSummaryDuration(accumulation.HorasExtras),
+            DiasJustificados = accumulation.DiasJustificados.ToString(),
+            DiasConTurno = accumulation.DiasProgramadosConTurno.ToString(),
+            DiasSinTurno = accumulation.DiasDeAsistenciaSinTurno.ToString(),
+            FeriadosConTurno = accumulation.FeriadosConTurno.ToString(),
+            FeriadosSinTurno = accumulation.FeriadosSinTurno.ToString(),
+            HorasJustificadas = FormatSummaryDuration(accumulation.HorasJustificadas),
+            Rows = rows
         };
     }
 
-    private static IEnumerable<AttendanceReportRowViewModel> FilterRows(IEnumerable<AttendanceReportPersonSummaryViewModel> persons, string? estado)
-        => FilterRows(persons.SelectMany(static x => x.Rows), estado);
+    private static IEnumerable<AttendanceDayResult> FilterResults(IEnumerable<AttendanceDayResult> results, string? estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado))
+        {
+            return results;
+        }
+
+        return NormalizeEstado(estado) switch
+        {
+            "Excepción" => results.Where(r => r.Exception is not null || r.HasExceptions || !string.IsNullOrWhiteSpace(r.ExceptionDisplayText)),
+            "Falta" => results.Where(static r => r.IsAbsent),
+            "Feriado" => results.Where(static r => r.IsHoliday),
+            "Feriado con turno" => results.Where(static r => r.IsHolidayWithSchedule),
+            "Permisos/Justificaciones" => results.Where(static r => (r.JustifiedDuration.HasValue && r.JustifiedDuration.Value > TimeSpan.Zero)
+                || r.Exception is not null
+                || r.HasExceptions
+                || !string.IsNullOrWhiteSpace(r.ExceptionDisplayText)),
+            "Asistencia sin turno" => results.Where(static r => r.IsNoSchedule && (r.EntryMark is not null || r.ExitMark is not null || r.IntermediateMarks.Count > 0 || (r.EffectiveWorkDuration.HasValue && r.EffectiveWorkDuration.Value > TimeSpan.Zero))),
+            "Feriado sin turno" => results.Where(static r => r.IsHolidayWithoutSchedule),
+            "FDS" => results.Where(static r => r.IsWeekend),
+            "Horas extras" => results.Where(static r => r.OvertimeDuration.HasValue && r.OvertimeDuration.Value > TimeSpan.Zero),
+            "Salida temprana" => results.Where(static r => r.EarlyExitDuration.HasValue && r.EarlyExitDuration.Value > TimeSpan.Zero),
+            "Sin turno" => results.Where(static r => r.IsNoSchedule),
+            "Sin marca" => results.Where(static r => r.EntryMark is null && r.ExitMark is null && r.IntermediateMarks.Count == 0),
+            "Tardanza" => results.Where(static r => r.LateEntryDuration.HasValue && r.LateEntryDuration.Value > TimeSpan.Zero),
+            _ => results
+        };
+    }
 
     private static IEnumerable<AttendanceReportRowViewModel> FilterRows(IEnumerable<AttendanceReportRowViewModel> rows, string? estado)
     {
@@ -214,16 +250,69 @@ public class AttendanceReportService : IAttendanceReportService
             return rows;
         }
 
-        return estado.Trim() switch
+        return NormalizeEstado(estado) switch
         {
-            "Falta" => rows.Where(r => string.Equals(r.Falta, "Si", StringComparison.OrdinalIgnoreCase)),
-            "Tardanza" => rows.Where(r => !string.IsNullOrWhiteSpace(r.TardanzaEntrada)),
-            "Salida temprana" => rows.Where(r => !string.IsNullOrWhiteSpace(r.SalidaTemprana)),
-            "Horas extras" => rows.Where(r => !string.IsNullOrWhiteSpace(r.HorasExtras)),
             "Excepción" => rows.Where(r => !string.IsNullOrWhiteSpace(r.Excepcion)),
+            "Falta" => rows.Where(r => string.Equals(r.Falta, "Si", StringComparison.OrdinalIgnoreCase)),
+            "Feriado" => rows.Where(static r => r.EsFeriado),
+            "Feriado con turno" => rows.Where(static r => r.EsFeriadoConTurno),
+            "Feriado sin turno" => rows.Where(static r => r.EsFeriadoSinTurno),
+            "FDS" => rows.Where(static r => r.EsFinDeSemana),
+            "Horas extras" => rows.Where(r => !string.IsNullOrWhiteSpace(r.HorasExtras)),
+            "Permisos/Justificaciones" => rows.Where(r => !string.IsNullOrWhiteSpace(r.HorasPermiso)
+                || !string.IsNullOrWhiteSpace(r.HorasJustificadas)
+                || !string.IsNullOrWhiteSpace(r.Excepcion)),
+            "Asistencia sin turno" => rows.Where(static r => r.EsSinTurno
+                && (!string.IsNullOrWhiteSpace(r.Entrada)
+                    || !string.IsNullOrWhiteSpace(r.Salida)
+                    || !string.IsNullOrWhiteSpace(r.MarcasIntermedias)
+                    || !string.IsNullOrWhiteSpace(r.HorasEfectivas))),
+            "Salida temprana" => rows.Where(r => !string.IsNullOrWhiteSpace(r.SalidaTemprana)),
+            "Sin turno" => rows.Where(static r => r.EsSinTurno),
+            "Sin marca" => rows.Where(static r => string.IsNullOrWhiteSpace(r.Entrada) && string.IsNullOrWhiteSpace(r.Salida) && string.IsNullOrWhiteSpace(r.MarcasIntermedias)),
+            "Tardanza" => rows.Where(r => !string.IsNullOrWhiteSpace(r.TardanzaEntrada)),
             _ => rows
         };
     }
+
+    private static string NormalizeEstado(string? estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado))
+        {
+            return string.Empty;
+        }
+
+        var normalized = estado.Trim();
+        return normalized.ToUpperInvariant() switch
+        {
+            "FALTAS" => "Falta",
+            "TARDANZAS" => "Tardanza",
+            "SALIDAS TEMPRANAS" => "Salida temprana",
+            "HORAS EXTRA" => "Horas extras",
+            "PERMISOS/JUSTIFICACIONES" => "Permisos/Justificaciones",
+            "ASISTENCIA SIN TURNO" => "Asistencia sin turno",
+            "FERIADOS" => "Feriado",
+            _ => normalized
+        };
+    }
+
+    private static IReadOnlyList<string> BuildAvailableStates()
+        => new[]
+        {
+            "FALTAS",
+            "TARDANZAS",
+            "SALIDAS TEMPRANAS",
+            "HORAS EXTRA",
+            "PERMISOS/JUSTIFICACIONES",
+            "ASISTENCIA SIN TURNO",
+            "FERIADOS",
+            "Feriado con turno",
+            "Feriado sin turno",
+            "FDS",
+            "Sin marca",
+            "Sin turno",
+            "Excepción"
+        };
 
     private static AttendanceReportRequest NormalizeRequest(AttendanceReportRequest request)
     {
@@ -232,7 +321,12 @@ public class AttendanceReportService : IAttendanceReportService
 
         if (to < from)
         {
-            (from, to) = (to, from);
+            throw new ArgumentException("La Fecha Desde no puede ser mayor que la Fecha Hasta.");
+        }
+
+        if ((to - from).TotalDays > MaxCalendarDays - 1)
+        {
+            throw new ArgumentException("El rango de fechas no puede exceder 62 días calendario.");
         }
 
         return new AttendanceReportRequest
@@ -248,36 +342,47 @@ public class AttendanceReportService : IAttendanceReportService
     }
 
     private static string? NormalizeText(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string ResolveScheduleCode(AttendanceDayResult result)
-    {
-        return result.Schedule?.ScheduleName ?? string.Empty;
-    }
+        => result.Schedule?.ScheduleName ?? string.Empty;
 
     private static string ResolveScheduleDisplay(AttendanceDayResult result)
     {
+        if (!string.IsNullOrWhiteSpace(result.ScheduleDisplayText))
+        {
+            return result.ScheduleDisplayText;
+        }
+
         if (result.Schedule is null || !result.Schedule.HasSchedule)
         {
+            if (result.IsHolidayWithoutSchedule)
+            {
+                return "FERIADO SIN TURNO";
+            }
+
             if (result.IsHoliday)
             {
                 return "FERIADO";
             }
 
-            return result.IsWeekend ? "FIN DE SEMANA" : string.Empty;
+            if (result.IsWeekend)
+            {
+                return "FDS";
+            }
+
+            return result.IsNoSchedule ? "SIN TURNO" : string.Empty;
         }
 
         var range = FormatScheduleRange(result.Schedule);
+        if (result.IsHolidayWithSchedule)
+        {
+            return string.IsNullOrWhiteSpace(range) ? "(FER)" : $"(FER) {range}";
+        }
+
         if (result.IsWeekend)
         {
             return string.IsNullOrWhiteSpace(range) ? "(FDS)" : $"(FDS) {range}";
-        }
-
-        if (result.IsHoliday)
-        {
-            return string.IsNullOrWhiteSpace(range) ? "(FER)" : $"(FER) {range}";
         }
 
         return range;
@@ -294,9 +399,7 @@ public class AttendanceReportService : IAttendanceReportService
     }
 
     private static string FormatMark(AttendanceMark? mark)
-    {
-        return mark?.Timestamp.ToString("HH:mm") ?? string.Empty;
-    }
+        => mark?.Timestamp.ToString("HH:mm") ?? string.Empty;
 
     private static string FormatDuration(TimeSpan? value)
     {
@@ -305,21 +408,8 @@ public class AttendanceReportService : IAttendanceReportService
             return string.Empty;
         }
 
-        return value.Value.ToString(@"hh\:mm");
-    }
-
-    private static TimeSpan SumDurations(IEnumerable<string> values)
-    {
-        var total = TimeSpan.Zero;
-        foreach (var value in values)
-        {
-            if (TimeSpan.TryParse(value, out var parsed))
-            {
-                total += parsed;
-            }
-        }
-
-        return total;
+        var totalHours = (int)value.Value.TotalHours;
+        return $"{totalHours:00}:{value.Value.Minutes:00}";
     }
 
     private static string FormatSummaryDuration(TimeSpan value)
@@ -331,5 +421,65 @@ public class AttendanceReportService : IAttendanceReportService
 
         var totalHours = (int)value.TotalHours;
         return $"{totalHours}:{value.Minutes:00}";
+    }
+
+    private static string? ResolveState(AttendanceReportRowViewModel row)
+    {
+        if (!string.IsNullOrWhiteSpace(row.Excepcion))
+        {
+            return "Excepción";
+        }
+
+        if (row.EsFeriadoConTurno)
+        {
+            return "Feriado con turno";
+        }
+
+        if (row.EsFeriadoSinTurno)
+        {
+            return "Feriado sin turno";
+        }
+
+        if (row.EsFeriado)
+        {
+            return "Feriado";
+        }
+
+        if (row.EsFinDeSemana)
+        {
+            return "FDS";
+        }
+
+        if (row.EsSinTurno)
+        {
+            return "Sin turno";
+        }
+
+        if (string.IsNullOrWhiteSpace(row.Entrada) && string.IsNullOrWhiteSpace(row.Salida) && string.IsNullOrWhiteSpace(row.MarcasIntermedias))
+        {
+            return "Sin marca";
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.HorasExtras))
+        {
+            return "Horas extras";
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.SalidaTemprana))
+        {
+            return "Salida temprana";
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.TardanzaEntrada))
+        {
+            return "Tardanza";
+        }
+
+        if (string.Equals(row.Falta, "Si", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Falta";
+        }
+
+        return null;
     }
 }
