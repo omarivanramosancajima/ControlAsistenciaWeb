@@ -43,19 +43,11 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     {
         // [ASISTWEB][SEC.03.06.01] El motor opera las marcas con precisión de minuto.
         // Los segundos no participan en selección ni en cálculos.
-        var orderedMarks = context.Marks
-            .Select(NormalizeMarkToMinute)
-            .OrderBy(x => x.Timestamp)
-            .ThenBy(x => x.Source)
-            .ThenBy(x => x.RecordId)
-            .ToList();
-
-        var orderedNextDayMarks = context.NextDayMarks
-            .Select(NormalizeMarkToMinute)
-            .OrderBy(x => x.Timestamp)
-            .ThenBy(x => x.Source)
-            .ThenBy(x => x.RecordId)
-            .ToList();
+        // [ASISTWEB][SEC.03.06.01 / SEC.02.01]
+        // Evita que el mismo registro físico, repetido por un JOIN del proveedor,
+        // sea interpretado como dos marcaciones distintas y produzca Entrada=Salida.
+        var orderedMarks = NormalizeAndDeduplicateMarks(context.Marks);
+        var orderedNextDayMarks = NormalizeAndDeduplicateMarks(context.NextDayMarks);
 
         var resolvedException = ResolveException(context);
         var result = CreateBaseResult(context);
@@ -76,6 +68,36 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         CalculateScheduledDay(context, orderedMarks, resolvedException, result, accumulation);
         FinalizePresenceDuration(context, result);
         return result;
+    }
+
+    private static List<AttendanceMark> NormalizeAndDeduplicateMarks(
+        IEnumerable<AttendanceMark> marks)
+    {
+        return marks
+            .Select(NormalizeMarkToMinute)
+            .GroupBy(BuildMarkIdentity)
+            .Select(group => group.First())
+            .OrderBy(x => x.Timestamp)
+            .ThenBy(x => x.Source)
+            .ThenBy(x => x.RecordId)
+            .ToList();
+    }
+
+    private static string BuildMarkIdentity(AttendanceMark mark)
+    {
+        if (mark.RecordId.HasValue)
+        {
+            return $"ID:{mark.Source}:{mark.RecordId.Value}";
+        }
+
+        return string.Join(
+            "|",
+            mark.Source,
+            mark.PersonId,
+            mark.Timestamp.Ticks,
+            mark.CheckType ?? string.Empty,
+            mark.MarkType,
+            mark.IsPreviousDayClosureMark);
     }
 
     private static AttendanceMark NormalizeMarkToMinute(AttendanceMark mark)
@@ -156,8 +178,23 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         // [ASISTWEB][SEC.02]
         if (orderedMarks.Count == 0)
         {
-            // [ASISTWEB][SEC.02.00.01] Sin marcas: no procesa el día en SEC.02.
+            // [ASISTWEB][SEC.02.00.01]
+            // SIN TURNO + SIN MARCAS = día descartado.
+            // Una excepción por sí sola NO crea un día resultante.
             result.ProcessedBySection02 = false;
+            result.EntryMark = null;
+            result.ExitMark = null;
+            result.IntermediateMarks = Array.Empty<AttendanceMark>();
+            result.EffectiveWorkDuration = null;
+            result.PresenceDuration = null;
+            result.LateEntryDuration = null;
+            result.EarlyExitDuration = null;
+            result.OvertimeDuration = null;
+            result.JustifiedDuration = null;
+            result.JustifiedDayFraction = null;
+            result.Exception = null;
+            result.ExceptionDisplayText = string.Empty;
+            result.IsAbsent = false;
             return;
         }
 
@@ -180,7 +217,17 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         if (orderedMarks.Count == 1)
         {
+            // [ASISTWEB][SEC.02.01.01][APROBADO 01.09.2026]
+            // Una sola MARCA_MINIMA sin cierre L al día siguiente:
+            // SOLO Entrada. Salida permanece vacía y no se calcula ningún concepto.
             result.EntryMark = orderedMarks[0];
+            result.ExitMark = null;
+            result.IntermediateMarks = Array.Empty<AttendanceMark>();
+            result.LateEntryDuration = null;
+            result.EarlyExitDuration = null;
+            result.EffectiveWorkDuration = null;
+            result.PresenceDuration = null;
+            result.OvertimeDuration = null;
 
             var nextDayClosure = orderedNextDayMarks
                 .Where(x => x.IsPreviousDayClosureMark)

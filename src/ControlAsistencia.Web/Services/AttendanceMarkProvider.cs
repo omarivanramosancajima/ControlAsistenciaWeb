@@ -45,7 +45,7 @@ SELECT
     MODIFYBY AS ModifiedBy,
     [DATE] AS OperationDate
 FROM dbo.CHECKEXACT WITH (NOLOCK)
-WHERE USERID = @PersonId
+WHERE USERID = -9999
   AND CAST(CHECKTIME AS date) BETWEEN @FromDate AND @ToDate;";
 
         try
