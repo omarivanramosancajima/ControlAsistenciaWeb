@@ -9,11 +9,12 @@ public class AttendanceReportRowViewModel
     public DateTime Fecha { get; set; }
     public string HorarioCodigo { get; set; } = string.Empty;
     public string HorarioRango { get; set; } = string.Empty;
-    public string HorarioAsignado => $"{HorarioCodigo} {HorarioRango}".Trim();
+    public string HorarioAsignado => $"{HorarioRango}".Trim(); //"{HorarioCodigo} {HorarioRango}".Trim()
     public string Entrada { get; set; } = string.Empty;
     public string Salida { get; set; } = string.Empty;
     public string Falta { get; set; } = string.Empty;
     public string HorasEfectivas { get; set; } = string.Empty;
+    public string HorasDePermanencia { get; set; } = string.Empty;
     public string HorasPermiso { get; set; } = string.Empty;
     public string TardanzaEntrada { get; set; } = string.Empty;
     public string SalidaTemprana { get; set; } = string.Empty;

@@ -10,7 +10,8 @@ public class AttendanceReportPersonSummaryViewModel
     public string HorarioRango { get; set; } = string.Empty;
     public string DiasAsistencia { get; set; } = string.Empty;
     public string DiasFalta { get; set; } = string.Empty;
-    public string HorasEfectivas { get; set; } = string.Empty;
+    public string HorasEfectivas { get; set; } = string.Empty;    
+    public string HorasDePermanencia { get; set; } = string.Empty;
     public string HorasPermiso { get; set; } = string.Empty;
     public string Tardanza { get; set; } = string.Empty;
     public string SalidaTemprana { get; set; } = string.Empty;

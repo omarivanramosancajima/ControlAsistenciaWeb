@@ -4,5 +4,6 @@ namespace ControlAsistencia.Web.Services;
 
 public interface IAttendanceCalculationEngine
 {
-    AttendanceDayResult Calculate(AttendanceCalculationContext context);
+    AttendanceCalculationResult Calculate(AttendanceCalculationContext context);
+    AttendanceDayResult CalculateDay(AttendanceCalculationDayContext context);
 }

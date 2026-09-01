@@ -27,28 +27,68 @@ public class AttendanceCalculationContextBuilder : IAttendanceCalculationContext
         _exceptionProvider = exceptionProvider;
     }
 
-    public async Task<AttendanceCalculationContext?> BuildAsync(int personId, DateOnly date)
+    /// <summary>
+    /// Construye el contexto completo de UNA persona para TODO el rango solicitado.
+    /// El bucle de días pertenece al contexto/orquestación de preparación; el motor decide
+    /// cuáles resultados conserva y procesa todos los días recibidos.
+    /// </summary>
+    public async Task<AttendanceCalculationContext?> BuildAsync(int personId, DateTime from, DateTime to)
     {
-        // [ASISTWEB][SEC.00]
-        // [ASISTWEB][SEC.01]
-        // [ASISTWEB][SEC.01.01]
-        // [ASISTWEB][SEC.01.02]
-        // [ASISTWEB][SEC.01.03]
-        // [ASISTWEB][SEC.01.04]
+        if (from.Date > to.Date)
+        {
+            throw new ArgumentException("FechaDesde no puede ser mayor que FechaHasta.");
+        }
+
         var person = await _personProvider.GetByPersonIdAsync(personId);
         if (person is null)
         {
             return null;
         }
 
-        var schedule = await _scheduleProvider.GetScheduleAsync(personId, date);
-        var marks = await _markProvider.GetMarksAsync(personId, date);
-        var nextDayMarks = await _markProvider.GetMarksAsync(personId, date.AddDays(1));
         var parameters = await _parameterProvider.GetParametersAsync();
-        var holiday = await _holidayProvider.GetHolidayAsync(date);
-        var exceptions = await _exceptionProvider.GetExceptionsAsync(personId, date);
+        var days = new List<AttendanceCalculationDayContext>();
+
+        for (var current = DateOnly.FromDateTime(from.Date);
+             current <= DateOnly.FromDateTime(to.Date);
+             current = current.AddDays(1))
+        {
+            days.Add(await BuildDayAsync(person, parameters, current));
+        }
 
         return new AttendanceCalculationContext
+        {
+            PersonContext = new AttendancePersonContext
+            {
+                PersonId = person.PersonId,
+                PersonCode = person.PersonCode,
+                PersonDocumentNumber = person.PersonDocumentNumber,
+                PersonName = person.PersonName,
+                DepartmentId = person.DepartmentId,
+                DepartmentName = person.DepartmentName,
+                CompanyTaxId = person.CompanyTaxId,
+                CompanyName = person.CompanyName,
+                CompanyDepartmentId = person.CompanyDepartmentId,
+                CompanyResolutionDiagnostic = person.CompanyResolutionDiagnostic
+            },
+            FechaDesde = DateOnly.FromDateTime(from.Date),
+            FechaHasta = DateOnly.FromDateTime(to.Date),
+            Days = days
+        };
+    }
+
+    private async Task<AttendanceCalculationDayContext> BuildDayAsync(
+        AttendancePersonInfo person,
+        AttendanceCalculationParameters parameters,
+        DateOnly date)
+    {
+        // [ASISTWEB][SEC.01.01][SEC.01.02][SEC.01.03][SEC.01.04]
+        var schedule = await _scheduleProvider.GetScheduleAsync(person.PersonId, date);
+        var marks = await _markProvider.GetMarksAsync(person.PersonId, date);
+        var nextDayMarks = await _markProvider.GetMarksAsync(person.PersonId, date.AddDays(1));
+        var holiday = await _holidayProvider.GetHolidayAsync(date);
+        var exceptions = await _exceptionProvider.GetExceptionsAsync(person.PersonId, date);
+
+        return new AttendanceCalculationDayContext
         {
             PersonId = person.PersonId,
             PersonCode = person.PersonCode,

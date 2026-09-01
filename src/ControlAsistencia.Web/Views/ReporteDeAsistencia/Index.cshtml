@@ -112,20 +112,24 @@
             <table class="table table-bordered table-hover align-middle attendance-report-table mb-0">
                 <thead class="table-light">
                     <tr>
+                        <!--
                         <th>Código</th>
+                        //-->
                         <th>DNI</th>
                         <th>Personal</th>
+                        <!--
                         <th>Área</th>
+                        //-->
                         <th>Fecha</th>
                         <th>Horario Asignado</th>
                         <th class="text-center">Entra.</th>
                         <th class="text-center">Salid.</th>
                         <th class="text-center">Falta</th>
-                        <th class="text-center">Horas EFECT.</th>
-                        <th class="text-center">Horas PERM.</th>
-                        <th class="text-center">Tarda. Entra.</th>
-                        <th class="text-center">Salida Temp.</th>
-                        <th class="text-center">Horas Extras</th>
+                        <th class="text-center">Horas <br/>EFECT.</th>
+                        <th class="text-center">Horas <br/>PERM.</th>
+                        <th class="text-center">Tarda. <br/>Entra.</th>
+                        <th class="text-center">Salida <br/>Temp.</th>
+                        <th class="text-center">Horas <br/>Extras</th>
                         <th>Excepción</th>
                         <th>Marcas Intermedias</th>
                     </tr>
@@ -142,20 +146,24 @@
                     foreach (var item in Model.Rows)
                     {
                         <tr>
+                            <!--
                             <td class="fw-semibold text-nowrap">@item.Codigo</td>
+                            //-->
                             <td class="text-nowrap">@item.Dni</td>
                             <td class="attendance-col-personal">@item.Personal</td>
+                            <!--
                             <td class="text-nowrap">@item.Area</td>
+                            //-->
                             <td class="text-nowrap">@item.Fecha.ToString("dd/MM/yyyy")</td>
                             <td class="attendance-col-horario">@item.HorarioAsignado</td>
                             <td class="text-center text-nowrap">@item.Entrada</td>
                             <td class="text-center text-nowrap">@item.Salida</td>
                             <td class="text-center text-nowrap @GetAttendanceCellClass(item, "falta")">@item.Falta</td>
-                            <td class="text-center text-nowrap">@item.HorasEfectivas</td>
-                            <td class="text-center text-nowrap">@item.HorasPermiso</td>
-                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "tardanza")">@item.TardanzaEntrada</td>
-                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "salida-temprana")">@item.SalidaTemprana</td>
-                            <td class="text-center text-nowrap @GetAttendanceCellClass(item, "horas-extras")">@item.HorasExtras</td>
+                            <td class="attendance-col-horascalculadas">@item.HorasEfectivas</td>
+                            <td class="attendance-col-horascalculadas">@item.HorasDePermanencia</td>
+                            <td class="attendance-col-horascalculadas @GetAttendanceCellClass(item, "tardanza")">@item.TardanzaEntrada</td>
+                            <td class="attendance-col-horascalculadas @GetAttendanceCellClass(item, "salida-temprana")">@item.SalidaTemprana</td>
+                            <td class="attendance-col-horascalculadas @GetAttendanceCellClass(item, "horas-extras")">@item.HorasExtras</td>
                             <td class="attendance-col-excepcion @GetAttendanceCellClass(item, "excepcion")">@item.Excepcion</td>
                             <td class="attendance-col-marcas">@item.MarcasIntermedias</td>
                         </tr>

@@ -4,5 +4,5 @@ namespace ControlAsistencia.Web.Services;
 
 public interface IAttendanceCalculationContextBuilder
 {
-    Task<AttendanceCalculationContext?> BuildAsync(int personId, DateOnly date);
+    Task<AttendanceCalculationContext?> BuildAsync(int personId, DateTime from, DateTime to);
 }

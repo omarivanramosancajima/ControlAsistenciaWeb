@@ -35,7 +35,7 @@ body {
 }
 
 .attendance-report-table {
-  min-width: 1880px;
+  min-width: 1200px;
   font-size: 0.82rem;
   color: #1f2937;
 }
@@ -158,23 +158,29 @@ body {
 }
 
 .attendance-col-personal {
-  min-width: 220px;
+  min-width: 100px;
   font-weight: 600;
 }
 
 .attendance-col-horario {
-  min-width: 145px;
+  min-width: 100px;
   white-space: nowrap;
 }
 
+.attendance-col-horascalculadas {
+  min-width: 50px;
+  white-space: nowrap;
+  text-align: center; 
+}
+
 .attendance-col-excepcion {
-  min-width: 150px;
+  min-width: 80px;
   white-space: nowrap;
   font-weight: 600;
 }
 
 .attendance-col-marcas {
-  min-width: 180px;
+  min-width: 100px;
 }
 
 .attendance-report-pagination .page-link {

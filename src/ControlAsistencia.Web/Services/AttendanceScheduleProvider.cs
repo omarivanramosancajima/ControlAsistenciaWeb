@@ -32,7 +32,7 @@ INNER JOIN dbo.NUM_RUN NR WITH (NOLOCK) ON NR.NUM_RUNID = UOR.NUM_OF_RUN_ID
 WHERE UOR.USERID = @PersonId
   AND CAST(UOR.STARTDATE AS date) <= @TargetDate
   AND CAST(UOR.ENDDATE AS date) >= @TargetDate
-ORDER BY UOR.STARTDATE DESC, UOR.ENDDATE DESC, UOR.ORDER_RUN DESC;";
+ORDER BY UOR.NUM_OF_RUN_ID ASC;";
 
         const string detailSql = @"
 SELECT TOP (1)
@@ -128,15 +128,18 @@ ORDER BY D.SDAYS ASC;";
 
     private static int ResolveScheduleDay(DateOnly targetDate)
     {
+        // [ASISTWEB][SEC.01.04]
+        // La especificación usa exclusivamente este orden para NUM_RUN_DEIL.SDAYS:
+        // lunes=1, martes=2, miércoles=3, jueves=4, viernes=5, sábado=6, domingo=7.
         return targetDate.DayOfWeek switch
         {
-            DayOfWeek.Sunday => 1,
-            DayOfWeek.Monday => 2,
-            DayOfWeek.Tuesday => 3,
-            DayOfWeek.Wednesday => 4,
-            DayOfWeek.Thursday => 5,
-            DayOfWeek.Friday => 6,
-            DayOfWeek.Saturday => 7,
+            DayOfWeek.Monday => 1,
+            DayOfWeek.Tuesday => 2,
+            DayOfWeek.Wednesday => 3,
+            DayOfWeek.Thursday => 4,
+            DayOfWeek.Friday => 5,
+            DayOfWeek.Saturday => 6,
+            DayOfWeek.Sunday => 7,
             _ => 0
         };
     }

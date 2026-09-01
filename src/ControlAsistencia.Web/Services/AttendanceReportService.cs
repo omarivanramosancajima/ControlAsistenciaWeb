@@ -86,39 +86,34 @@ public class AttendanceReportService : IAttendanceReportService
 
         foreach (var person in filterPersons)
         {
-            var dayResults = await BuildDayResultsAsync(person.PersonId, request.FechaDesde!.Value, request.FechaHasta!.Value);
-            var includedResults = dayResults.Where(ShouldIncludeResult).ToList();
+            // [ASISTWEB][SEC.00][SEC.01]
+            // El servicio prepara UNA persona y TODO su rango; el Engine realiza la iteración de días.
+            var context = await _contextBuilder.BuildAsync(
+                person.PersonId,
+                request.FechaDesde!.Value,
+                request.FechaHasta!.Value);
+
+            if (context is null)
+            {
+                continue;
+            }
+
+            var calculation = _engine.Calculate(context);
+            var includedResults = calculation.Days.Where(ShouldIncludeResult).ToList();
             var filteredResults = FilterResults(includedResults, request.Estado).ToList();
+
             if (filteredResults.Count == 0)
             {
                 continue;
             }
 
-            result.Add(BuildPersonSummary(filteredResults));
+            result.Add(BuildPersonSummary(calculation, filteredResults));
         }
 
         return result
             .OrderBy(static x => x.Personal)
             .ThenBy(static x => x.Codigo)
             .ToList();
-    }
-
-    private async Task<IReadOnlyList<AttendanceDayResult>> BuildDayResultsAsync(int personId, DateTime from, DateTime to)
-    {
-        var results = new List<AttendanceDayResult>();
-
-        for (var current = DateOnly.FromDateTime(from.Date); current <= DateOnly.FromDateTime(to.Date); current = current.AddDays(1))
-        {
-            var context = await _contextBuilder.BuildAsync(personId, current);
-            if (context is null)
-            {
-                continue;
-            }
-
-            results.Add(_engine.Calculate(context));
-        }
-
-        return results;
     }
 
     private static bool ShouldIncludeResult(AttendanceDayResult result)
@@ -161,6 +156,7 @@ public class AttendanceReportService : IAttendanceReportService
             Salida = FormatMark(result.ExitMark),
             Falta = result.IsAbsent ? "Si" : "No",
             HorasEfectivas = FormatDuration(result.EffectiveWorkDuration),
+            HorasDePermanencia = FormatDuration(result.PresenceDuration),
             HorasPermiso = FormatDuration(result.JustifiedDuration),
             TardanzaEntrada = FormatDuration(result.LateEntryDuration),
             SalidaTemprana = FormatDuration(result.EarlyExitDuration),
@@ -180,26 +176,30 @@ public class AttendanceReportService : IAttendanceReportService
         };
     }
 
-    private static AttendanceReportPersonSummaryViewModel BuildPersonSummary(IReadOnlyList<AttendanceDayResult> results)
+    private static AttendanceReportPersonSummaryViewModel BuildPersonSummary(
+        AttendanceCalculationResult calculation,
+        IReadOnlyList<AttendanceDayResult> filteredResults)
     {
-        var first = results[0];
-        var accumulation = results[^1].Accumulation;
-        var rows = results
+        var person = calculation.PersonContext;
+        var first = filteredResults[0];
+        var accumulation = calculation.Accumulation;
+        var rows = filteredResults
             .Select(MapRow)
             .OrderBy(static x => x.Fecha)
             .ToList();
 
         return new AttendanceReportPersonSummaryViewModel
         {
-            Codigo = int.TryParse(first.PersonCode, out var code) ? code : 0,
-            Dni = first.PersonDocumentNumber ?? string.Empty,
-            Personal = first.PersonName ?? string.Empty,
-            Area = first.DepartmentName ?? string.Empty,
+            Codigo = int.TryParse(person.PersonCode, out var code) ? code : 0,
+            Dni = person.PersonDocumentNumber ?? string.Empty,
+            Personal = person.PersonName ?? string.Empty,
+            Area = person.DepartmentName ?? string.Empty,
             HorarioCodigo = ResolveScheduleCode(first),
             HorarioRango = ResolveScheduleDisplay(first),
             DiasAsistencia = accumulation.DiasDeAsistencia.ToString(),
             DiasFalta = accumulation.DiasConFalta.ToString(),
             HorasEfectivas = FormatSummaryDuration(accumulation.HorasEfectivas),
+            HorasDePermanencia = FormatSummaryDuration(accumulation.HorasDePermanencia),
             HorasPermiso = FormatSummaryDuration(accumulation.HorasDePermanencia),
             Tardanza = FormatSummaryDuration(accumulation.TardanzasDelDia),
             SalidaTemprana = FormatSummaryDuration(accumulation.SalidasTempranoDelDia),

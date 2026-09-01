@@ -6,17 +6,52 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 {
     private static readonly TimeSpan DefaultEntryWindowLead = TimeSpan.FromHours(2);
     private static readonly TimeSpan DefaultExitWindowTrail = TimeSpan.FromHours(6);
-    public AttendanceDayResult Calculate(AttendanceCalculationContext context)
+    public AttendanceCalculationResult Calculate(AttendanceCalculationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        var accumulation = new AttendancePersonAccumulation();
+        var results = new List<AttendanceDayResult>();
+
+        foreach (var dayContext in context.Days)
+        {
+            var result = CalculateDay(dayContext, accumulation);
+
+            // Sec.02/03 can intentionally discard a calendar day. A discarded day
+            // is not exposed through AttendanceCalculationResult.Days.
+            if (result.ProcessedBySection02 || result.ProcessedBySection03)
+            {
+                results.Add(result);
+            }
+        }
+
+        return new AttendanceCalculationResult
+        {
+            PersonContext = context.PersonContext,
+            Days = results,
+            Accumulation = accumulation
+        };
+    }
+
+    public AttendanceDayResult CalculateDay(AttendanceCalculationDayContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return CalculateDay(context, new AttendancePersonAccumulation());
+    }
+
+    private AttendanceDayResult CalculateDay(AttendanceCalculationDayContext context, AttendancePersonAccumulation accumulation)
+    {
+        // [ASISTWEB][SEC.03.06.01] El motor opera las marcas con precisión de minuto.
+        // Los segundos no participan en selección ni en cálculos.
         var orderedMarks = context.Marks
+            .Select(NormalizeMarkToMinute)
             .OrderBy(x => x.Timestamp)
             .ThenBy(x => x.Source)
             .ThenBy(x => x.RecordId)
             .ToList();
 
         var orderedNextDayMarks = context.NextDayMarks
+            .Select(NormalizeMarkToMinute)
             .OrderBy(x => x.Timestamp)
             .ThenBy(x => x.Source)
             .ThenBy(x => x.RecordId)
@@ -24,7 +59,6 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         var resolvedException = ResolveException(context);
         var result = CreateBaseResult(context);
-        var accumulation = new AttendancePersonAccumulation();
         result.Exception = resolvedException.SelectedException;
         result.JustifiedDuration = resolvedException.JustifiedDuration;
         result.JustifiedDayFraction = resolvedException.JustifiedDayFraction;
@@ -35,15 +69,60 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         if (context.IsNoSchedule || context.Schedule is null || !context.Schedule.HasSchedule)
         {
             CalculateNoSchedule(context, orderedMarks, orderedNextDayMarks, resolvedException, result, accumulation);
+            FinalizePresenceDuration(context, result);
             return result;
         }
 
         CalculateScheduledDay(context, orderedMarks, resolvedException, result, accumulation);
+        FinalizePresenceDuration(context, result);
         return result;
     }
 
-    private static AttendanceDayResult CreateBaseResult(AttendanceCalculationContext context)
+    private static AttendanceMark NormalizeMarkToMinute(AttendanceMark mark)
     {
+        return new AttendanceMark
+        {
+            Source = mark.Source,
+            RecordId = mark.RecordId,
+            PersonId = mark.PersonId,
+            Timestamp = new DateTime(
+                mark.Timestamp.Year,
+                mark.Timestamp.Month,
+                mark.Timestamp.Day,
+                mark.Timestamp.Hour,
+                mark.Timestamp.Minute,
+                0,
+                mark.Timestamp.Kind),
+            CheckType = mark.CheckType,
+            MarkType = mark.MarkType,
+            IsPreviousDayClosureMark = mark.IsPreviousDayClosureMark,
+            VerifyCode = mark.VerifyCode,
+            SensorId = mark.SensorId,
+            DeviceSerialNumber = mark.DeviceSerialNumber,
+            MemoInfo = mark.MemoInfo,
+            WorkCode = mark.WorkCode,
+            IsManual = mark.IsManual,
+            IsAdded = mark.IsAdded,
+            IsModified = mark.IsModified,
+            IsDeleted = mark.IsDeleted,
+            IsCounted = mark.IsCounted,
+            InCount = mark.InCount,
+            Note = mark.Note,
+            ModifiedBy = mark.ModifiedBy,
+            OperationDate = mark.OperationDate
+        };
+    }
+
+    private static AttendanceDayResult CreateBaseResult(AttendanceCalculationDayContext context)
+    {
+        // [ASISTWEB][SEC.03.01][SEC.03.06.07]
+        // Normaliza únicamente la representación del horario para evitar duplicaciones
+        // que llegan en ScheduleName (p.ej. "HR01 HR01"). No altera la asignación.
+        if (context.Schedule is not null)
+        {
+            NormalizeScheduleNameOnObject(context.Schedule);
+        }
+
         return new AttendanceDayResult
         {
             PersonId = context.PersonId,
@@ -52,6 +131,9 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             PersonName = context.PersonName,
             DepartmentId = context.DepartmentId,
             DepartmentName = context.DepartmentName,
+            CompanyTaxId = context.CompanyTaxId,
+            CompanyName = context.CompanyName,
+            CompanyResolutionDiagnostic = context.CompanyResolutionDiagnostic,
             Date = context.CalculationDate,
             Schedule = context.Schedule,
             IsHoliday = context.IsHoliday,
@@ -64,7 +146,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     }
 
     private static void CalculateNoSchedule(
-        AttendanceCalculationContext context,
+        AttendanceCalculationDayContext context,
         IReadOnlyList<AttendanceMark> orderedMarks,
         IReadOnlyList<AttendanceMark> orderedNextDayMarks,
         ExceptionResolution resolvedException,
@@ -153,7 +235,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     }
 
     private static void CalculateScheduledDay(
-        AttendanceCalculationContext context,
+        AttendanceCalculationDayContext context,
         IReadOnlyList<AttendanceMark> orderedMarks,
         ExceptionResolution resolvedException,
         AttendanceDayResult result,
@@ -202,7 +284,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         if (entryMark is null && exitMark is null)
         {
             // [ASISTWEB][SEC.03.06.02.01]
-            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(*)");
+            ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(*)", orderedMarks);
             return;
         }
 
@@ -260,7 +342,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     }
 
     private static TimeSpan ResolveScheduledOvertime(
-        AttendanceCalculationContext context,
+        AttendanceCalculationDayContext context,
         ScheduleBounds scheduleBounds,
         DateTime actualEntry,
         DateTime actualExit,
@@ -287,7 +369,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return totalOt;
     }
 
-    private static TimeSpan CalculateAfterOvertime(AttendanceCalculationContext context, ScheduleBounds scheduleBounds, DateTime actualExit)
+    private static TimeSpan CalculateAfterOvertime(AttendanceCalculationDayContext context, ScheduleBounds scheduleBounds, DateTime actualExit)
     {
         // [ASISTWEB][SEC.03.06.03]
         if (!context.Parameters.AllowAfterOT || context.Parameters.IntervalOfAfterOT <= 0 || actualExit <= scheduleBounds.ScheduledEnd)
@@ -306,7 +388,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             : diff;
     }
 
-    private static TimeSpan CalculateEarlyOvertime(AttendanceCalculationContext context, ScheduleBounds scheduleBounds, DateTime actualEntry)
+    private static TimeSpan CalculateEarlyOvertime(AttendanceCalculationDayContext context, ScheduleBounds scheduleBounds, DateTime actualEntry)
     {
         // [ASISTWEB][SEC.03.06.03]
         if (!context.Parameters.AllowEarlyOT || context.Parameters.IntervalOfEarlyOT <= 0 || actualEntry >= scheduleBounds.ScheduledStart)
@@ -325,7 +407,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             : diff;
     }
 
-    private static TimeSpan ResolveNoScheduleOvertime(AttendanceCalculationContext context, TimeSpan effectiveDuration)
+    private static TimeSpan ResolveNoScheduleOvertime(AttendanceCalculationDayContext context, TimeSpan effectiveDuration)
     {
         if (context.IsHoliday)
         {
@@ -382,12 +464,12 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         result.IsAbsent = false;
         result.LateEntryDuration = null;
         result.EarlyExitDuration = null;
-        result.EffectiveWorkDuration = null;
-        result.PresenceDuration = null;
+        result.EffectiveWorkDuration = TimeSpan.Zero;
+        result.PresenceDuration = TimeSpan.Zero;
         result.OvertimeDuration = null;
     }
 
-    private static ExceptionResolution ResolveException(AttendanceCalculationContext context)
+    private static ExceptionResolution ResolveException(AttendanceCalculationDayContext context)
     {
         if (context.Exceptions.Count == 0 || context.Schedule is null || !context.Schedule.HasSchedule)
         {
@@ -448,6 +530,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         // [ASISTWEB][SEC.03.04]
         if (HasValidTimeRange(schedule.CheckInTime1, schedule.CheckInTime2))
         {
+            // [ASISTWEB][SEC.03.04] Ventana propia del horario.
             return new ScheduleWindow(
                 bounds.ScheduledStart - schedule.CheckInTime1!.Value.ToTimeSpan(),
                 bounds.ScheduledStart + schedule.CheckInTime2!.Value.ToTimeSpan());
@@ -462,6 +545,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         // [ASISTWEB][SEC.03.04]
         if (HasValidTimeRange(schedule.CheckOutTime1, schedule.CheckOutTime2))
         {
+            // [ASISTWEB][SEC.03.04] Ventana propia del horario.
             return new ScheduleWindow(
                 bounds.ScheduledEnd - schedule.CheckOutTime1!.Value.ToTimeSpan(),
                 bounds.ScheduledEnd + schedule.CheckOutTime2!.Value.ToTimeSpan());
@@ -473,11 +557,30 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
     private static ScheduleBounds ResolveScheduleBounds(DateOnly date, AttendanceSchedule schedule)
     {
-        var startDate = date.AddDays((schedule.StartDayOffset ?? 1) - 1);
-        var endDate = date.AddDays((schedule.EndDayOffset ?? schedule.StartDayOffset ?? 1) - 1);
-        var scheduledStart = CombineDateWithTime(startDate.ToDateTime(TimeOnly.MinValue).Date, schedule.ScheduledStartTime ?? TimeOnly.MinValue);
-        var scheduledEnd = CombineDateWithTime(endDate.ToDateTime(TimeOnly.MinValue).Date, schedule.ScheduledEndTime ?? TimeOnly.MinValue);
+        // [ASISTWEB][SEC.03.03]
+        // STARTTIME siempre se arma con la fecha calendario que se está procesando.
+        // SDAYS/EDAYS NO son offsets de fecha; identifican el día de inicio/fin
+        // de la programación. Solo se usa su diferencia para determinar amanecida.
+        var scheduledStart = CombineDateWithTime(
+            date.ToDateTime(TimeOnly.MinValue).Date,
+            schedule.ScheduledStartTime ?? TimeOnly.MinValue);
 
+        var scheduledEndDate = date;
+        var isOvernight = schedule.ScheduleEndDay.HasValue
+                          && schedule.ScheduleDay.HasValue
+                          && schedule.ScheduleEndDay.Value != schedule.ScheduleDay.Value;
+
+        if (isOvernight)
+        {
+            scheduledEndDate = date.AddDays(1);
+        }
+
+        var scheduledEnd = CombineDateWithTime(
+            scheduledEndDate.ToDateTime(TimeOnly.MinValue).Date,
+            schedule.ScheduledEndTime ?? TimeOnly.MinValue);
+
+        // Protección de coherencia: un horario normal no debe terminar antes de comenzar.
+        // En amanecida la fecha ya fue normalizada arriba.
         if (scheduledEnd <= scheduledStart)
         {
             scheduledEnd = scheduledEnd.AddDays(1);
@@ -555,7 +658,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         }
     }
 
-    private static void ApplyNoScheduleLabels(AttendanceCalculationContext context, AttendanceDayResult result)
+    private static void ApplyNoScheduleLabels(AttendanceCalculationDayContext context, AttendanceDayResult result)
     {
         if (context.IsHoliday)
         {
@@ -572,7 +675,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         result.ScheduleDisplayText = "SIN TURNO __:__ - __:__";
     }
 
-    private static void ApplySingleMarkExceptionAccumulation(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation)
+    private static void ApplySingleMarkExceptionAccumulation(AttendanceCalculationDayContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation)
     {
         if (context.Exceptions.Any(x => x.Unit == 3))
         {
@@ -580,7 +683,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         }
     }
 
-    private static void ApplyNoScheduleExceptionAccumulation(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendancePersonAccumulation accumulation)
+    private static void ApplyNoScheduleExceptionAccumulation(AttendanceCalculationDayContext context, ExceptionResolution resolvedException, AttendancePersonAccumulation accumulation)
     {
         if (context.Exceptions.Any(x => x.Unit == 3))
         {
@@ -591,11 +694,29 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         accumulation.HorasJustificadas += CalculateUniqueExceptionMinutes(context.Exceptions);
     }
 
-    private static void ApplyAbsenceWithSchedule(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, string observationCode)
+    private static void ApplyAbsenceWithSchedule(
+        AttendanceCalculationDayContext context,
+        ExceptionResolution resolvedException,
+        AttendanceDayResult result,
+        AttendancePersonAccumulation accumulation,
+        ScheduleBounds scheduleBounds,
+        string observationCode,
+        IReadOnlyList<AttendanceMark>? allMarks = null)
     {
+        // [ASISTWEB][SEC.03.05][SEC.03.06.02.01/02/03/04]
+        // Si el día termina como falta por ausencia de marcas válidas,
+        // las marcas no son entrada/salida: se muestran todas como intermedias.
         result.IsAbsent = true;
         result.ScheduleObservationCode = observationCode;
         result.ScheduleDisplayText = BuildAssignedScheduleDisplayText(context, scheduleBounds, observationCode);
+        result.EntryMark = null;
+        result.ExitMark = null;
+        result.IntermediateMarks = allMarks?.ToList() ?? result.IntermediateMarks;
+        result.LateEntryDuration = null;
+        result.EarlyExitDuration = null;
+        result.EffectiveWorkDuration = TimeSpan.Zero;
+        result.PresenceDuration = TimeSpan.Zero;
+        result.OvertimeDuration = null;
         accumulation.DiasConFalta++;
         ApplyFullDayExceptionIfAny(scheduleBounds, resolvedException, result);
 
@@ -628,7 +749,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         }
     }
 
-    private static void ApplyScheduledExceptionRules(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    private static void ApplyScheduledExceptionRules(AttendanceCalculationDayContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
     {
         if (!context.HasExceptions)
         {
@@ -673,7 +794,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             context.Schedule?.BreakMinutes ?? 0);
     }
 
-    private static List<(DateTime Start, DateTime End)> BuildUniqueJustificationRanges(AttendanceCalculationContext context, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    private static List<(DateTime Start, DateTime End)> BuildUniqueJustificationRanges(AttendanceCalculationDayContext context, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
     {
         var ranges = new List<(DateTime Start, DateTime End)>();
 
@@ -700,7 +821,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             .Where(x => x.End > x.Start);
     }
 
-    private static TimeSpan CalculateScheduledLateExceptionMinutes(AttendanceCalculationContext context, AttendanceDayResult result, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    private static TimeSpan CalculateScheduledLateExceptionMinutes(AttendanceCalculationDayContext context, AttendanceDayResult result, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
     {
         var lateDuration = result.LateEntryDuration ?? TimeSpan.Zero;
         if (lateDuration <= TimeSpan.Zero)
@@ -717,7 +838,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return Min(justified, lateDuration);
     }
 
-    private static TimeSpan CalculateScheduledEarlyExceptionMinutes(AttendanceCalculationContext context, AttendanceDayResult result, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
+    private static TimeSpan CalculateScheduledEarlyExceptionMinutes(AttendanceCalculationDayContext context, AttendanceDayResult result, ScheduleBounds scheduleBounds, ScheduledScenarioState state)
     {
         var earlyDuration = result.EarlyExitDuration ?? TimeSpan.Zero;
         if (earlyDuration <= TimeSpan.Zero)
@@ -734,7 +855,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return Min(justified, earlyDuration);
     }
 
-    private static ScheduledScenarioState ProcessMissingEntryScenario(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark exitMark)
+    private static ScheduledScenarioState ProcessMissingEntryScenario(AttendanceCalculationDayContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark exitMark)
     {
         result.InconsistencyKind = AttendanceInconsistencyKind.MissingEntry;
         result.EntryMark = null;
@@ -752,6 +873,10 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         if (TriggersEarlyAbsence(context, result.EarlyExitDuration))
         {
+            result.IntermediateMarks = result.IntermediateMarks
+                .Append(exitMark)
+                .OrderBy(x => x.Timestamp)
+                .ToList();
             ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(s*)");
             return ScheduledScenarioState.Terminal();
         }
@@ -761,7 +886,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return ScheduledScenarioState.Continue(ScheduledCaseKind.MissingEntry, assumedEntry, exitMark.Timestamp, assumedEntry, exitMark.Timestamp);
     }
 
-    private static ScheduledScenarioState ProcessMissingExitScenario(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark entryMark)
+    private static ScheduledScenarioState ProcessMissingExitScenario(AttendanceCalculationDayContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark entryMark)
     {
         result.InconsistencyKind = AttendanceInconsistencyKind.MissingExit;
         result.ExitMark = null;
@@ -779,6 +904,10 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         if (TriggersLateAbsence(context, result.LateEntryDuration))
         {
+            result.IntermediateMarks = result.IntermediateMarks
+                .Append(entryMark)
+                .OrderBy(x => x.Timestamp)
+                .ToList();
             ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(e*)");
             return ScheduledScenarioState.Terminal();
         }
@@ -788,13 +917,18 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return ScheduledScenarioState.Continue(ScheduledCaseKind.MissingExit, entryMark.Timestamp, assumedExit, entryMark.Timestamp, assumedExit);
     }
 
-    private static ScheduledScenarioState ProcessEntryAndExitScenario(AttendanceCalculationContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark entryMark, AttendanceMark exitMark)
+    private static ScheduledScenarioState ProcessEntryAndExitScenario(AttendanceCalculationDayContext context, ExceptionResolution resolvedException, AttendanceDayResult result, AttendancePersonAccumulation accumulation, ScheduleBounds scheduleBounds, AttendanceMark entryMark, AttendanceMark exitMark)
     {
         var late = CalculateLateLiteral(scheduleBounds.ScheduledStart, entryMark.Timestamp, context.Schedule?.LateToleranceMinutes ?? 0);
         result.LateEntryDuration = late > TimeSpan.Zero ? late : null;
 
         if (TriggersLateAbsence(context, result.LateEntryDuration))
         {
+            result.IntermediateMarks = result.IntermediateMarks
+                .Append(entryMark)
+                .Append(exitMark)
+                .OrderBy(x => x.Timestamp)
+                .ToList();
             ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(e*)");
             return ScheduledScenarioState.Terminal();
         }
@@ -804,6 +938,11 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         if (TriggersEarlyAbsence(context, result.EarlyExitDuration))
         {
+            result.IntermediateMarks = result.IntermediateMarks
+                .Append(entryMark)
+                .Append(exitMark)
+                .OrderBy(x => x.Timestamp)
+                .ToList();
             ApplyAbsenceWithSchedule(context, resolvedException, result, accumulation, scheduleBounds, "(s*)");
             return ScheduledScenarioState.Terminal();
         }
@@ -846,10 +985,10 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             : TimeSpan.Zero;
     }
 
-    private static bool TriggersLateAbsence(AttendanceCalculationContext context, TimeSpan? late)
+    private static bool TriggersLateAbsence(AttendanceCalculationDayContext context, TimeSpan? late)
         => context.Parameters.LateAbsent && context.Parameters.MinsLateAbsent > 0 && late.HasValue && late.Value.TotalMinutes > context.Parameters.MinsLateAbsent;
 
-    private static bool TriggersEarlyAbsence(AttendanceCalculationContext context, TimeSpan? early)
+    private static bool TriggersEarlyAbsence(AttendanceCalculationDayContext context, TimeSpan? early)
         => context.Parameters.EarlyAbsent && context.Parameters.MinsEarlyAbsent > 0 && early.HasValue && early.Value.TotalMinutes > context.Parameters.MinsEarlyAbsent;
 
     private static TimeSpan SubtractBreak(TimeSpan duration, int breakMinutes)
@@ -959,7 +1098,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return total;
     }
 
-    private static string BuildExceptionDisplayText(AttendanceCalculationContext context, bool isNoSchedule)
+    private static string BuildExceptionDisplayText(AttendanceCalculationDayContext context, bool isNoSchedule)
     {
         if (!context.HasExceptions)
         {
@@ -973,7 +1112,77 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         return string.Join(", ", ordered.Select(x => x.LeaveName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
-    private static string BuildInitialScheduleDisplayText(AttendanceCalculationContext context)
+    // [ASISTWEB][SEC.03.06.02][SEC.03.06.06]
+    // HORAS_PERMANENCIA es independiente de HORAS_EFECTIVAS.
+    // Cuando existen ambas marcas reales, se obtiene exclusivamente de:
+    // MARCA_DE_SALIDA - MARCA_DE_ENTRADA - REFRIGERIO.
+    // No modifica HORAS_EFECTIVAS ni vuelve a acumular el día.
+    private static void FinalizePresenceDuration(
+        AttendanceCalculationDayContext context,
+        AttendanceDayResult result)
+    {
+        if (result.IsAbsent)
+        {
+            result.PresenceDuration = TimeSpan.Zero;
+            return;
+        }
+
+        if (result.EntryMark is not null && result.ExitMark is not null)
+        {
+            result.PresenceDuration = CalculatePresenceDuration(
+                result.EntryMark.Timestamp,
+                result.ExitMark.Timestamp,
+                context.Schedule?.BreakMinutes ?? 0);
+        }
+    }
+
+    // [ASISTWEB][SEC.03.01][SEC.03.06.07]
+    // El reporte actual puede leer Schedule.ScheduleName directamente.
+    // Por ello la normalización debe quedar aplicada al objeto que acompaña
+    // AttendanceDayResult, además de ScheduleDisplayText.
+    private static void NormalizeScheduleNameOnObject(AttendanceSchedule schedule)
+    {
+        var property = typeof(AttendanceSchedule).GetProperty("ScheduleName");
+        if (property?.CanWrite == true && property.PropertyType == typeof(string))
+        {
+            property.SetValue(schedule, NormalizeScheduleName(property.GetValue(schedule) as string));
+        }
+    }
+
+    private static string NormalizeScheduleName(string? scheduleName)
+    {
+        if (string.IsNullOrWhiteSpace(scheduleName))
+        {
+            return string.Empty;
+        }
+
+        var parts = scheduleName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2 &&
+            string.Equals(parts[0], parts[1], StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Join(' ', parts.Skip(1));
+        }
+
+        return scheduleName.Trim();
+    }
+
+    private static string RemoveRepeatedScheduleSuffix(string scheduleName, string suffix)
+    {
+        if (string.IsNullOrWhiteSpace(scheduleName) || string.IsNullOrWhiteSpace(suffix))
+        {
+            return scheduleName;
+        }
+
+        var normalized = scheduleName.Trim();
+        while (normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[..^suffix.Length].TrimEnd();
+        }
+
+        return normalized;
+    }
+
+    private static string BuildInitialScheduleDisplayText(AttendanceCalculationDayContext context)
     {
         if (context.Schedule is null || !context.Schedule.HasSchedule)
         {
@@ -982,10 +1191,11 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         var startText = context.Schedule.ScheduledStartTime?.ToString("HH:mm") ?? "__:__";
         var endText = context.Schedule.ScheduledEndTime?.ToString("HH:mm") ?? "__:__";
-        return $"{context.Schedule.ScheduleName} {startText} - {endText}";
+        var scheduleName = NormalizeScheduleName(context.Schedule.ScheduleName);
+        return $"{scheduleName} {startText} - {endText}";
     }
 
-    private static string BuildAssignedScheduleDisplayText(AttendanceCalculationContext context, ScheduleBounds bounds, string observationCode)
+    private static string BuildAssignedScheduleDisplayText(AttendanceCalculationDayContext context, ScheduleBounds bounds, string observationCode)
     {
         var suffix = context.IsHoliday && context.Parameters.ShowHoliday
             ? "(FER)"
@@ -993,6 +1203,8 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
                 ? "(FDS)"
                 : string.Empty;
 
-        return $"{context.Schedule?.ScheduleName} {suffix}{observationCode} {bounds.ScheduledStart:HH:mm} - {bounds.ScheduledEnd:HH:mm}".Trim();
+        var scheduleName = NormalizeScheduleName(context.Schedule?.ScheduleName);
+        scheduleName = RemoveRepeatedScheduleSuffix(scheduleName, suffix);
+        return $"{scheduleName} {suffix}{observationCode} {bounds.ScheduledStart:HH:mm} - {bounds.ScheduledEnd:HH:mm}".Trim();
     }
 }

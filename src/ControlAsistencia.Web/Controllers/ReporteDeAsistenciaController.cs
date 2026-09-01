@@ -109,7 +109,7 @@ public class ReporteDeAsistenciaController : Controller
             ws.Cell(rowIndex, 8).Value = item.Salida;
             ws.Cell(rowIndex, 9).Value = item.Falta;
             ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
-            ws.Cell(rowIndex, 11).Value = item.HorasPermiso;
+            ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
             ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
             ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
             ws.Cell(rowIndex, 14).Value = item.HorasExtras;
@@ -134,7 +134,7 @@ public class ReporteDeAsistenciaController : Controller
             WriteSummaryRow(ws, rowIndex++, "Días de Asistencia", person.DiasAsistencia, "Días con Turno", person.DiasConTurno);
             WriteSummaryRow(ws, rowIndex++, "Días sin Turno", person.DiasSinTurno, "Feriados con Turno", person.FeriadosConTurno);
             WriteSummaryRow(ws, rowIndex++, "Feriados sin Turno", person.FeriadosSinTurno, "Días de Falta", person.DiasFalta);
-            WriteSummaryRow(ws, rowIndex++, "Horas Efectivas", person.HorasEfectivas, "Horas Permanencia", person.HorasPermiso);
+            WriteSummaryRow(ws, rowIndex++, "Horas Efectivas", person.HorasEfectivas, "Horas Permanencia", person.HorasDePermanencia);
             WriteSummaryRow(ws, rowIndex++, "Tardanza", person.Tardanza, "Salida Temprana", person.SalidaTemprana);
             WriteSummaryRow(ws, rowIndex++, "Horas Extras", person.HorasExtras, "Días Justificados", person.DiasJustificados);
             WriteSummaryRow(ws, rowIndex++, "Horas Justificadas", person.HorasJustificadas, string.Empty, string.Empty);
@@ -186,10 +186,10 @@ public class ReporteDeAsistenciaController : Controller
                         column.Spacing(4);
                         column.Item().Text("Informe de Asistencia del Personal MTPE").Bold().FontSize(12).AlignCenter();
                         column.Item().Text($"Rango: {reportFrom:yyyy-MM-dd} a {reportTo:yyyy-MM-dd}").FontSize(8).AlignCenter();
-                        column.Item().Text("(Refrigerio => HR ó HN: horario que descuenta 60 ó 90 minutos, HS: horario que no descuenta.)").FontSize(7).AlignCenter();
-                        column.Item().PaddingTop(2).Text("RUC:").Bold().FontSize(8);
-                        column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
-
+                        column.Item().Text("(Refrigerio => HV, HR ó HN: horario que descuenta 45, 60 ó 90 minutos, HS o cualquier otro: horario que no descuenta.)").FontSize(7).AlignCenter();
+                        column.Item().PaddingTop(2).Text($"RUC: {report.CompanyTaxId} - {report.CompanyName}").Bold().FontSize(8);
+                        //column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
+                        /*    
                         column.Item().PaddingTop(2).Table(table =>
                         {
                             table.ColumnsDefinition(columns =>
@@ -207,7 +207,28 @@ public class ReporteDeAsistenciaController : Controller
                             table.Cell().Element(CellInfoLabel).Text("Área").Bold();
                             table.Cell().Element(CellInfoValue).Text(person.Area);
                         });
+                        */
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                            });
 
+                            table.Cell().Element(CellHeader).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellBody).Text(person.Dni);
+
+                            table.Cell().Element(CellHeader).Text("Personal").Bold();
+                            table.Cell().Element(CellBody).Text(person.Personal);
+
+                            table.Cell().Element(CellHeader).Text("Área").Bold();
+                            table.Cell().Element(CellBody).Text(person.Area);
+                        });
                         column.Item().Table(table =>
                         {
                             table.ColumnsDefinition(columns =>
@@ -235,12 +256,12 @@ public class ReporteDeAsistenciaController : Controller
                             foreach (var row in person.Rows)
                             {
                                 table.Cell().Element(CellBody).AlignCenter().Text(row.Fecha.ToString("dd/MM/yyyy"));
-                                table.Cell().Element(CellBody).Text($"{row.HorarioCodigo} {row.HorarioRango}");
+                                table.Cell().Element(CellBody).Text($"{row.HorarioRango}");  //"{row.HorarioCodigo} {row.HorarioRango}"
                                 table.Cell().Element(CellBody).AlignCenter().Text(row.Entrada);
                                 table.Cell().Element(CellBody).AlignCenter().Text(row.Salida);
                                 table.Cell().Element(c => StyledStatusCell(c, row.Falta == "Si" ? "falta" : null)).AlignCenter().Text(row.Falta);
                                 table.Cell().Element(CellBody).AlignCenter().Text(row.HorasEfectivas);
-                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasPermiso);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasDePermanencia);
                                 table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.TardanzaEntrada) ? "tardanza" : null)).AlignCenter().Text(row.TardanzaEntrada);
                                 table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.SalidaTemprana) ? "salida-temprana" : null)).AlignCenter().Text(row.SalidaTemprana);
                                 table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.HorasExtras) ? "horas-extras" : null)).AlignCenter().Text(row.HorasExtras);
@@ -255,24 +276,33 @@ public class ReporteDeAsistenciaController : Controller
                             table.ColumnsDefinition(columns =>
                             {
                                 columns.RelativeColumn();
-                                columns.ConstantColumn(72);
+                                columns.ConstantColumn(50);
                                 columns.RelativeColumn();
-                                columns.ConstantColumn(72);
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);                                
                             });
 
-                            TotalsCell(table, "Días de Asist.", person.DiasAsistencia);
-                            TotalsCell(table, "Días con Turno", person.DiasConTurno);
-                            TotalsCell(table, "Días sin Turno", person.DiasSinTurno);
-                            TotalsCell(table, "Feriados c/Turno", person.FeriadosConTurno);
-                            TotalsCell(table, "Feriados s/Turno", person.FeriadosSinTurno);
-                            TotalsCell(table, "Días de Falta", person.DiasFalta);
-                            TotalsCell(table, "Horas EFECT.", person.HorasEfectivas);
-                            TotalsCell(table, "Horas PERM.", person.HorasPermiso);
-                            TotalsCell(table, "Tarda.", person.Tardanza);
-                            TotalsCell(table, "Salida Temp.", person.SalidaTemprana);
-                            TotalsCell(table, "Horas Extras", person.HorasExtras);
-                            TotalsCell(table, "Días Justificad.", person.DiasJustificados);
-                            TotalsCell(table, "Horas Justific.", person.HorasJustificadas);
+                            TotalsCell(table, "DÍAS PROGRAMADOS", person.DiasConTurno);
+                            TotalsCell(table, "DÍAS JUSTIFICADOS", person.DiasJustificados);
+                            TotalsCell(table, "HORAS EFECTIVAS", person.HorasEfectivas);
+                            TotalsCell(table, "HORAS EXTRAS", person.HorasExtras);
+
+                            TotalsCell(table, "DÍAS DE ASISTENCIA", person.DiasAsistencia);
+                            TotalsCell(table, "DÍAS FERIADOS CON TURNO", person.FeriadosConTurno);
+                            TotalsCell(table, "HORAS DE PERMANENCIA", person.HorasDePermanencia);
+                            TotalsCell(table, "HORAS JUSTIFICADAS", person.HorasJustificadas);
+
+                            TotalsCell(table, "DÍAS DE FALTA", person.DiasFalta);
+                            TotalsCell(table, "DIAS FERIADOS SIN TURNO", person.FeriadosSinTurno);
+                            TotalsCell(table, "HORAS DE TARDANZAS", person.Tardanza);
+                            TotalsCell(table, string.Empty, string.Empty);
+
+                            TotalsCell(table, "DÍAS SIN TURNO ASISTIDOS", person.DiasSinTurno);
+                            TotalsCell(table, string.Empty, string.Empty);
+                            TotalsCell(table, "HORAS DE SALIDAS TEMPRANAS", person.SalidaTemprana);
                             TotalsCell(table, string.Empty, string.Empty);
                         });
                     });
