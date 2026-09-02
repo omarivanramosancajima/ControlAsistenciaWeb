@@ -1,3 +1,4 @@
+using System.Globalization;
 using ControlAsistencia.Web.Models;
 using Dapper;
 using Microsoft.Data.SqlClient;
@@ -65,6 +66,8 @@ WHERE D.NUM_RUNID = @ShiftId
   AND D.SDAYS = @ScheduleDay
 ORDER BY D.SDAYS ASC;";
 
+//  AND CASE WHEN (D.SDAYS >= 1 AND D.SDAYS < 8) THEN D.SDAYS CASE WHEN (D.SDAYS >= 8 AND D.SDAYS < 15) THEN D.SDAYS-7 CASE WHEN (D.SDAYS >= 15 AND D.SDAYS < 22) THEN D.SDAYS-14 CASE WHEN (D.SDAYS >= 22 AND D.SDAYS < 29) THEN D.SDAYS-21 CASE WHEN (D.SDAYS >= 29 AND D.SDAYS < 32) THEN D.SDAYS-28 END = @ScheduleDay
+
         try
         {
             await using var connection = new SqlConnection(_connectionString);
@@ -79,7 +82,7 @@ ORDER BY D.SDAYS ASC;";
                 return null;
             }
 
-            var scheduleDay = ResolveScheduleDay(date);
+            var scheduleDay = ResolveScheduleDay(date, assignment.Units);
             var detail = await connection.QueryFirstOrDefaultAsync<ScheduleDetailRow>(detailSql, new
             {
                 assignment.ShiftId,
@@ -126,22 +129,88 @@ ORDER BY D.SDAYS ASC;";
         }
     }
 
-    private static int ResolveScheduleDay(DateOnly targetDate)
+    private static int ResolveScheduleDay(DateOnly targetDate, short? units)
     {
+        int resolveScheduleDay=0;
         // [ASISTWEB][SEC.01.04]
         // La especificación usa exclusivamente este orden para NUM_RUN_DEIL.SDAYS:
+        // Semanal
         // lunes=1, martes=2, miércoles=3, jueves=4, viernes=5, sábado=6, domingo=7.
-        return targetDate.DayOfWeek switch
+        if (units == 1)
         {
-            DayOfWeek.Monday => 1,
-            DayOfWeek.Tuesday => 2,
-            DayOfWeek.Wednesday => 3,
-            DayOfWeek.Thursday => 4,
-            DayOfWeek.Friday => 5,
-            DayOfWeek.Saturday => 6,
-            DayOfWeek.Sunday => 7,
-            _ => 0
-        };
+            // Semanal
+            // lunes=1, martes=2, miércoles=3, jueves=4, viernes=5, sábado=6, domingo=7.
+            resolveScheduleDay= targetDate.DayOfWeek switch
+            {
+                DayOfWeek.Monday => 1,
+                DayOfWeek.Tuesday => 2,
+                DayOfWeek.Wednesday => 3,
+                DayOfWeek.Thursday => 4,
+                DayOfWeek.Friday => 5,
+                DayOfWeek.Saturday => 6,
+                DayOfWeek.Sunday => 7,
+                _ => 0
+            };
+        }else if (units == 0 || units == 2)
+        {
+            // Diario o Mensual
+            resolveScheduleDay= targetDate.Day;   
+        }else if (units == 3)
+        {
+            //Quincenal nuevo semana par/impar
+            // 1. Obtener el número de semana ISO (continuo y estandarizado)
+            int numeroSemana = ISOWeek.GetWeekOfYear(targetDate.ToDateTime(TimeOnly.MinValue));
+
+            // 2. Determinar si es Semana Impar o Semana Par
+            bool esSemanaImpar = (numeroSemana % 2 != 0); 
+
+            // 3.  lógica de asignación de horarios
+            if (esSemanaImpar)
+            {
+                // Aplicar el horario de la primera semana según el fechaAsistencia.DayOfWeek
+                resolveScheduleDay= targetDate.DayOfWeek switch
+                {
+                    DayOfWeek.Monday => 1,
+                    DayOfWeek.Tuesday => 2,
+                    DayOfWeek.Wednesday => 3,
+                    DayOfWeek.Thursday => 4,
+                    DayOfWeek.Friday => 5,
+                    DayOfWeek.Saturday => 6,
+                    DayOfWeek.Sunday => 7,
+                    _ => 0
+                };
+            }
+            else
+            {
+                // Aplicar el horario de la segunda semana según el fechaAsistencia.DayOfWeek
+                resolveScheduleDay= targetDate.DayOfWeek switch
+                {
+                    DayOfWeek.Monday => 8,
+                    DayOfWeek.Tuesday => 9,
+                    DayOfWeek.Wednesday => 10,
+                    DayOfWeek.Thursday => 11,
+                    DayOfWeek.Friday => 12,
+                    DayOfWeek.Saturday => 13,
+                    DayOfWeek.Sunday => 14,
+                    _ => 1
+                };
+            }            
+            // Quincenal logica anterior
+            /*
+            if (targetDate.Day <= 15)
+            {
+                resolveScheduleDay= targetDate.Day;   
+            }else if (targetDate.Day > 15 && targetDate.Day <= 30)
+            {
+                resolveScheduleDay= targetDate.Day-15;                  
+            }else if (targetDate.Day > 30)
+            {
+                resolveScheduleDay= targetDate.Day-30;                  
+            }
+            */
+        }
+        return resolveScheduleDay;
+
     }
 
     private sealed class ScheduleAssignmentRow
