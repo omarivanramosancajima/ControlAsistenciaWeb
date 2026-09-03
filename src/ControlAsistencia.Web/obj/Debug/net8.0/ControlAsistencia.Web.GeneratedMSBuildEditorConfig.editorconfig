@@ -118,6 +118,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSnVzdGlmaWNhckVtcGxlYWRvXF9Db25maXJtRGVsZXRlRXhjZXBjaW9uZXNNb2RhbC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/MarcacionEmpleado/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFyY2FjaW9uRW1wbGVhZG9cSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/MarcacionEmpleado/_ConfirmDeleteMarcacionesModal.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFyY2FjaW9uRW1wbGVhZG9cX0NvbmZpcm1EZWxldGVNYXJjYWNpb25lc01vZGFsLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/PlantillaPersonal/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUGxhbnRpbGxhUGVyc29uYWxcSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 

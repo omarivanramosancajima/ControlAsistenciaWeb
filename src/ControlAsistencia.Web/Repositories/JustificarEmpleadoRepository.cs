@@ -254,7 +254,7 @@ VALUES
 
         const string logSql = @"
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
-VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
+VALUES (LEFT(@Operator, 20), GETDATE(), LEFT(@MachineAlias, 20), 0, LEFT(@LogDescr, 50));";
 
         await using var connection = new SqlConnection(_connectionString);
         var users = (await connection.QueryAsync<JustificarEmpleadoSelectedEmployee>(
@@ -441,7 +441,7 @@ WHERE USERID = @UserId
 
         const string logSql = @"
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
-VALUES (@Operator, GETDATE(), @MachineAlias, 0, @LogDescr);";
+VALUES (LEFT(@Operator, 20), GETDATE(), LEFT(@MachineAlias, 20), 0, LEFT(@LogDescr, 50));";
 
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();

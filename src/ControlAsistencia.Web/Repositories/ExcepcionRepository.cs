@@ -88,7 +88,8 @@ VALUES (@LeaveName, @MinUnit, @Unit, 1, 1, @ReportSymbol, 0, 0, @Classify);
 
 DECLARE @NameLog VARCHAR(100) = @LeaveName;
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
-VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Agrega Excepcion: ' + @NameLog);";
+VALUES (LEFT(@Operator, 20), GETDATE(), LEFT(@MachineAlias, 20), 0,
+        LEFT('Agrega Excepcion: ' + @NameLog, 50));";
 
         try
         {
@@ -129,7 +130,8 @@ WHERE LeaveId = @LeaveId;
 
 DECLARE @NameLog VARCHAR(100) = @LeaveName;
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
-VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Edita Excepcion: ' + @NameLog);";
+VALUES (LEFT(@Operator, 20), GETDATE(), LEFT(@MachineAlias, 20), 0,
+        LEFT('Edita Excepcion: ' + @NameLog, 50));";
 
         try
         {
@@ -194,7 +196,8 @@ DECLARE @Name VARCHAR(100);
 SELECT @Name = LeaveName FROM dbo.LeaveClass WHERE LeaveId = @LeaveId;
 DELETE FROM dbo.LeaveClass WHERE LeaveId = @LeaveId;
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
-VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Elimina Excepcion: ' + ISNULL(@Name, ''));";
+VALUES (LEFT(@Operator, 20), GETDATE(), LEFT(@MachineAlias, 20), 0,
+        LEFT('Elimina Excepcion: ' + ISNULL(@Name, ''), 50));";
 
         try
         {
@@ -216,7 +219,8 @@ VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Elimina Excepcion: ' + ISNULL(@
     {
         const string sql = @"
 INSERT INTO dbo.SystemLog ([Operator], LogTime, MachineAlias, LogTag, LogDescr)
-VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Visualiza Excepcion: ' + @LeaveName);";
+VALUES (LEFT(@Operator, 20), GETDATE(), LEFT(@MachineAlias, 20), 0,
+        LEFT('Visualiza Excepcion: ' + @LeaveName, 50));";
 
         try
         {

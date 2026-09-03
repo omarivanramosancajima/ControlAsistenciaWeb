@@ -1,0 +1,667 @@
+@model ControlAsistencia.Web.Models.MarcacionEmpleadoIndexViewModel
+@{
+    ViewData["Title"] = "Marcación del Empleado";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Marcación del Empleado</h1>
+    </div>
+
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Departamentos / Áreas</h2>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="includeSubDependencies" />
+                        <label class="form-check-label" for="includeSubDependencies">
+                            Incluir Sub-Dependencias
+                        </label>
+                    </div>
+
+                    <div class="list-group overflow-auto" id="departmentList">
+                        @if (Model.Departments.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">No existen departamentos registrados.</div>
+                        }
+                        else
+                        {
+                            foreach (var department in Model.Departments)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action department-selector"
+                                        data-dept-id="@department.DeptId">
+                                    <span class="d-inline-block ps-@Math.Min(department.Level * 2, 5)">
+                                        @department.DeptName
+                                    </span>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="d-flex flex-column gap-3">
+                    <div class="border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Relación de Personal</h2>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllEmployees" />
+                            <label class="form-check-label" for="selectAllEmployees">
+                                Seleccionar todas las personas
+                            </label>
+                        </div>
+
+                        <div class="table-responsive employee-panel-scroll">
+                            <table class="table table-hover align-middle mb-0" id="employeesTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th></th><th>Código</th><th>DNI</th><th>Nombre</th>
+                                        <th>Área</th><th>Foto</th><th>Perfil</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            Seleccione un departamento o área.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-3">
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Marcaciones de la Persona</h2>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-primary btn-sm" id="registerMarkButton">
+                                    Registrar
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="deleteMarkButton">
+                                    Borrar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive assignment-panel-scroll">
+                            <table class="table table-hover table-sm align-middle mb-0" id="marksTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th></th>
+                                        <th>Marcaje</th>
+                                        <th>Tipo Marca</th>
+                                        <th>Cód.Verif.</th>
+                                        <th>SensorID</th>
+                                        <th>Memo</th>
+                                        <th>Cód.Trabajo</th>
+                                        <th>N°Serie</th>
+                                        <th>FmtUserExt</th>
+                                        <th>Tipo Reg.</th>
+                                        <th>Motivo</th>
+                                        <th>Auditoría</th>
+                                        <th>Registro</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="13" class="text-center text-muted py-4">
+                                            Seleccione una persona para consultar sus marcaciones.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <button type="button" class="btn btn-secondary btn-sm" id="marksPreviousButton" disabled>
+                                Anterior
+                            </button>
+                            <span class="small text-muted" id="marksPageInfo">Página 1</span>
+                            <button type="button" class="btn btn-secondary btn-sm" id="marksNextButton" disabled>
+                                Siguiente
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalContainer"></div>
+
+@section Scripts {
+<script>
+(function () {
+    const employeesUrl = '@Url.Action("EmpleadosPorDepartamento", "MarcacionEmpleado")';
+    const marksUrl = '@Url.Action("MarcacionesPorPersona", "MarcacionEmpleado")';
+    const registerUrl = '@Url.Action("RegistrarMarca", "MarcacionEmpleado")';
+    const confirmDeleteUrl = '@Url.Action("ConfirmarEliminar", "MarcacionEmpleado")';
+    const deleteUrl = '@Url.Action("EliminarMarcaciones", "MarcacionEmpleado")';
+    const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+    const includeSubDependencies = document.getElementById('includeSubDependencies');
+    const selectAllEmployees = document.getElementById('selectAllEmployees');
+    const employeesBody = document.querySelector('#employeesTable tbody');
+    const marksBody = document.querySelector('#marksTable tbody');
+    const registerButton = document.getElementById('registerMarkButton');
+    const deleteButton = document.getElementById('deleteMarkButton');
+    const modalContainer = document.getElementById('modalContainer');
+    const marksPreviousButton = document.getElementById('marksPreviousButton');
+    const marksNextButton = document.getElementById('marksNextButton');
+    const marksPageInfo = document.getElementById('marksPageInfo');
+
+    let selectedDepartmentId = null;
+    let focusedEmployeeId = null;
+    let selectedEmployeeIds = new Set();
+    let visibleEmployees = [];
+    let marksPage = 1;
+    let marksHasNextPage = false;
+
+    marksPreviousButton.addEventListener('click', async () => {
+        if (marksPage <= 1) return;
+        marksPage--;
+        await loadMarks();
+    });
+
+    marksNextButton.addEventListener('click', async () => {
+        if (!marksHasNextPage) return;
+        marksPage++;
+        await loadMarks();
+    });
+
+    document.querySelectorAll('.department-selector').forEach(button => {
+        button.addEventListener('click', async function () {
+            document.querySelectorAll('.department-selector')
+                .forEach(x => x.classList.remove('active'));
+            this.classList.add('active');
+            selectedDepartmentId = Number(this.dataset.deptId);
+            focusedEmployeeId = null;
+            renderMarksMessage('Seleccione una persona para consultar sus marcaciones.');
+            await loadEmployees();
+        });
+    });
+
+    includeSubDependencies.addEventListener('change', async function () {
+        if (!selectedDepartmentId) return;
+        focusedEmployeeId = null;
+        marksPage = 1;
+        renderMarksMessage('Seleccione una persona para consultar sus marcaciones.');
+        await loadEmployees();
+    });
+
+    selectAllEmployees.addEventListener('change', function () {
+        if (this.checked) visibleEmployees.forEach(x => selectedEmployeeIds.add(x.userId));
+        else visibleEmployees.forEach(x => selectedEmployeeIds.delete(x.userId));
+        renderEmployees();
+    });
+
+    registerButton.addEventListener('click', openRegisterModal);
+    deleteButton.addEventListener('click', openDeleteModal);
+
+    async function loadEmployees() {
+        employeesBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Cargando personas...</td></tr>';
+        try {
+            const response = await fetch(
+                `${employeesUrl}?deptId=${selectedDepartmentId}&includeSubDependencies=${includeSubDependencies.checked}`,
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                visibleEmployees = [];
+                renderEmployeesMessage(result.message || 'No fue posible cargar las personas.');
+                return;
+            }
+
+            visibleEmployees = result.items || [];
+            selectedEmployeeIds = new Set(
+                Array.from(selectedEmployeeIds).filter(id => visibleEmployees.some(x => x.userId === id)));
+
+            if (!visibleEmployees.length) {
+                focusedEmployeeId = null;
+                renderEmployees();
+                renderMarksMessage('No hay personas asignadas a este departamento.');
+                return;
+            }
+
+            focusedEmployeeId = visibleEmployees.some(x => x.userId === focusedEmployeeId)
+                ? focusedEmployeeId : visibleEmployees[0].userId;
+
+            renderEmployees();
+            await loadMarks();
+        } catch {
+            visibleEmployees = [];
+            renderEmployeesMessage('No fue posible cargar las personas.');
+        }
+    }
+
+    function renderEmployeesMessage(message) {
+        employeesBody.innerHTML =
+            `<tr><td colspan="7" class="text-center text-muted py-4">${escapeHtml(message)}</td></tr>`;
+        syncSelectAll();
+    }
+
+    function renderEmployees() {
+        if (!visibleEmployees.length) {
+            renderEmployeesMessage('No hay personas asignadas a este departamento.');
+            return;
+        }
+
+        employeesBody.innerHTML = visibleEmployees.map(item => {
+            const focused = item.userId === focusedEmployeeId;
+            const checked = selectedEmployeeIds.has(item.userId);
+            const photo = item.photoBase64
+                ? `<img src="${item.photoBase64}" alt="Foto" class="img-thumbnail employee-photo-thumb" />`
+                : '<div class="border rounded d-inline-flex align-items-center justify-content-center bg-light text-muted employee-photo-thumb">N/D</div>';
+
+            return `<tr class="employee-row ${focused ? 'table-primary' : ''}" data-user-id="${item.userId}">
+                <td><input type="checkbox" class="form-check-input employee-checkbox"
+                    data-user-id="${item.userId}" ${checked ? 'checked' : ''} /></td>
+                <td>${escapeHtml(item.badgeNumber)}</td>
+                <td>${escapeHtml(item.ssn)}</td>
+                <td>${escapeHtml(item.name)}</td>
+                <td>${escapeHtml(item.departmentName)}</td>
+                <td>${photo}</td>
+                <td>${escapeHtml(item.privilegeDescription)}</td>
+            </tr>`;
+        }).join('');
+
+        employeesBody.querySelectorAll('.employee-row').forEach(row => {
+            row.addEventListener('click', async function (event) {
+                if (event.target.closest('.employee-checkbox')) return;
+                focusedEmployeeId = Number(this.dataset.userId);
+                marksPage = 1;
+                renderEmployees();
+                await loadMarks();
+            });
+        });
+
+        employeesBody.querySelectorAll('.employee-checkbox').forEach(box => {
+            box.addEventListener('click', e => e.stopPropagation());
+            box.addEventListener('change', function () {
+                const id = Number(this.dataset.userId);
+                if (this.checked) selectedEmployeeIds.add(id);
+                else selectedEmployeeIds.delete(id);
+                syncSelectAll();
+            });
+        });
+
+        syncSelectAll();
+    }
+
+    function syncSelectAll() {
+        selectAllEmployees.checked = visibleEmployees.length > 0 &&
+            visibleEmployees.every(x => selectedEmployeeIds.has(x.userId));
+    }
+
+    async function loadMarks() {
+        if (!focusedEmployeeId) {
+            renderMarksMessage('Seleccione una persona para consultar sus marcaciones.');
+            return;
+        }
+
+        marksBody.innerHTML =
+            '<tr><td colspan="13" class="text-center text-muted py-4">Cargando marcaciones...</td></tr>';
+
+        updateMarksPagination(false);
+
+        try {
+            const response = await fetch(`${marksUrl}?userId=${focusedEmployeeId}&page=${marksPage}`,
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                renderMarksMessage(result.message || 'No fue posible cargar las marcaciones.');
+                updateMarksPagination(false);
+                return;
+            }
+
+            marksHasNextPage = Boolean(result.hasNextPage);
+            if (marksPage > 1 && !(result.items || []).length) {
+                marksPage--;
+                return loadMarks();
+            }
+
+            renderMarks(result.items || []);
+            updateMarksPagination(marksHasNextPage);
+        } catch {
+            renderMarksMessage('No fue posible cargar las marcaciones.');
+        }
+    }
+
+    function renderMarks(items) {
+        if (!items.length) {
+            renderMarksMessage('La persona seleccionada no tiene marcaciones registradas.');
+            return;
+        }
+
+        marksBody.innerHTML = items.map(item => {
+            let rowClass = '';
+            if (item.recordType === 'Manual Agregado') rowClass = 'table-success';
+            else if (item.recordType === 'Manual Borrado') rowClass = 'table-danger';
+            else if (item.recordType === 'De Equipo Borrado') rowClass = 'table-warning';
+
+            const check = item.canDelete
+                ? `<input type="checkbox" class="form-check-input mark-checkbox"
+                    data-check-time="${escapeHtml(item.checkTime)}" />`
+                : '';
+
+            return `<tr class="${rowClass}">
+                <td>${check}</td>
+                <td>${formatDateTime(item.checkTime)}</td>
+                <td>${escapeHtml(item.checkType)}</td>
+                <td>${escapeHtml(item.verifyCode)}</td>
+                <td>${escapeHtml(item.sensorId)}</td>
+                <td>${escapeHtml(item.memoInfo)}</td>
+                <td>${escapeHtml(item.workCode)}</td>
+                <td>${escapeHtml(item.serialNumber)}</td>
+                <td>${escapeHtml(item.userExtFmt)}</td>
+                <td>${escapeHtml(item.recordType)}</td>
+                <td>${escapeHtml(item.reason)}</td>
+                <td>${escapeHtml(item.modifiedBy)}</td>
+                <td>${formatDateTimeSeconds(item.registeredAt)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderMarksMessage(message) {
+        marksBody.innerHTML =
+            `<tr><td colspan="13" class="text-center text-muted py-4">${escapeHtml(message)}</td></tr>`;
+    }
+
+    function updateMarksPagination(hasNext) {
+        marksHasNextPage = Boolean(hasNext);
+        marksPreviousButton.disabled = marksPage <= 1;
+        marksNextButton.disabled = !marksHasNextPage;
+        marksPageInfo.textContent = `Página ${marksPage}`;
+    }
+
+    function openRegisterModal() {
+        const selected = visibleEmployees.filter(x => selectedEmployeeIds.has(x.userId));
+        if (!selected.length) {
+            alert('Debe seleccionar al menos una persona.');
+            return;
+        }
+
+        modalContainer.innerHTML = buildRegisterModal(selected);
+        const element = document.getElementById('registerMarkModal');
+        const modal = new bootstrap.Modal(element);
+        bindRegisterModal(modal, selected);
+        modal.show();
+    }
+
+    function buildRegisterModal(selected) {
+        const people = selected.map(x =>
+            `<div class="form-check">
+                <input class="form-check-input" type="checkbox" checked disabled />
+                <label class="form-check-label">${escapeHtml(x.badgeNumber)} - ${escapeHtml(x.name)}</label>
+            </div>`).join('');
+
+        return `<div class="modal fade" id="registerMarkModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Registrar Marca Manual</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="registerMessage" class="alert d-none"></div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Personas seleccionadas</label>
+                            <div class="border rounded p-3 modal-selected-people-scroll">${people}</div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="markDate">Fecha Marcaje</label>
+                                <input type="date" class="form-control" id="markDate" required />
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="markTime">Hora</label>
+                                <input type="time" class="form-control" id="markTime" step="60" required />
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label" for="markReason">
+                                Motivo <span class="text-muted">(máximo 25 caracteres)</span>
+                            </label>
+                            <input type="text" class="form-control" id="markReason"
+                                   maxlength="25" required />
+                            <div class="form-text">Máximo 25 caracteres.</div>
+                        </div>
+                        <div class="border rounded p-3 mt-3 d-none" id="registerProgressBox">
+                            <h6 class="mb-3">Procesando registro</h6>
+                            <div id="registerProgressContent" class="small text-muted"></div>
+                        </div>
+                        <div class="border rounded p-3 mt-3 d-none" id="registerSummaryBox">
+                            <h6 class="mb-3">Resumen del proceso</h6>
+                            <div id="registerSummaryContent" class="small"></div>
+                            <hr />
+                            <div class="fw-semibold mb-2">¿Desea realizar otro marcaje manual?</div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-primary btn-sm" id="registerAnotherYes">Sí</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="registerAnotherNo">No</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="saveManualMarkButton">Registrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function bindRegisterModal(modal, selected) {
+        const save = document.getElementById('saveManualMarkButton');
+        const message = document.getElementById('registerMessage');
+        const progressBox = document.getElementById('registerProgressBox');
+        const progressContent = document.getElementById('registerProgressContent');
+        const summaryBox = document.getElementById('registerSummaryBox');
+        const summaryContent = document.getElementById('registerSummaryContent');
+        const date = document.getElementById('markDate');
+        const time = document.getElementById('markTime');
+        const reason = document.getElementById('markReason');
+
+        setTimeout(() => date.focus(), 150);
+
+        save.addEventListener('click', async function () {
+            message.className = 'alert d-none';
+            if (!date.value) return showMessage(message, 'Debe ingresar la fecha de marcaje.', false);
+            if (!time.value) return showMessage(message, 'Debe ingresar la hora de marcaje.', false);
+            if (!reason.value.trim()) return showMessage(message, 'Debe ingresar el motivo.', false);
+            if (reason.value.length > 25) return showMessage(message, 'El motivo no puede superar 25 caracteres.', false);
+
+            save.disabled = true;
+            progressBox.classList.remove('d-none');
+            summaryBox.classList.add('d-none');
+            progressContent.innerHTML = '<div>Estado: Iniciando...</div>';
+
+            try {
+                const response = await fetch(registerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': antiForgeryToken },
+                    body: JSON.stringify({
+                        userIds: selected.map(x => x.userId),
+                        checkDate: date.value,
+                        checkTime: time.value,
+                        reason: reason.value
+                    })
+                });
+
+                const result = await response.json();
+                progressBox.classList.add('d-none');
+
+                renderRegisterSummary(summaryContent, result.progressItems || []);
+                summaryBox.classList.remove('d-none');
+
+                if (!response.ok || !result.success) {
+                    showMessage(message, result.message || 'No fue posible completar el registro.', false);
+                    return;
+                }
+
+                showMessage(message, result.message || 'Proceso terminado.', true);
+                save.classList.add('d-none');
+            } catch {
+                progressBox.classList.add('d-none');
+                showMessage(message, 'No fue posible completar la operación.', false);
+                save.disabled = false;
+            }
+        });
+
+        document.getElementById('registerAnotherYes').addEventListener('click', function () {
+            date.value = '';
+            time.value = '';
+            reason.value = '';
+            message.className = 'alert d-none';
+            summaryBox.classList.add('d-none');
+            save.classList.remove('d-none');
+            save.disabled = false;
+            setTimeout(() => date.focus(), 100);
+        });
+
+        document.getElementById('registerAnotherNo').addEventListener('click', async function () {
+            modal.hide();
+            await loadMarks();
+        });
+    }
+
+    function renderRegisterSummary(container, items) {
+        if (!items.length) {
+            container.innerHTML = '<div>No se recibió información de proceso.</div>';
+            return;
+        }
+        container.innerHTML = items.map(x =>
+            `<div class="border rounded p-2 mb-2">
+                <div><strong>${escapeHtml(x.employeeName)}</strong> (${escapeHtml(x.badgeNumber)})</div>
+                <div>${escapeHtml(x.result)}</div>
+            </div>`).join('');
+    }
+
+    async function openDeleteModal() {
+        if (!focusedEmployeeId) {
+            alert('Debe seleccionar una persona.');
+            return;
+        }
+
+        const checked = Array.from(document.querySelectorAll('.mark-checkbox:checked'));
+        if (!checked.length) {
+            alert('Debe seleccionar una o varias marcaciones NO BORRADAS para poder borrar.');
+            return;
+        }
+
+        const items = checked.map(x => ({ checkTime: x.dataset.checkTime }));
+
+        try {
+            const response = await fetch(confirmDeleteUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': antiForgeryToken },
+                body: JSON.stringify({ userId: focusedEmployeeId, items: items })
+            });
+            const text = await response.text();
+
+            if (!response.ok) {
+                let message = 'No fue posible cargar la confirmación.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                alert(message);
+                return;
+            }
+
+            modalContainer.innerHTML = text;
+            const element = document.getElementById('confirmDeleteMarcacionesModal');
+            const modal = new bootstrap.Modal(element);
+            bindDeleteModal(modal, items);
+            modal.show();
+        } catch {
+            alert('No fue posible completar la operación.');
+        }
+    }
+
+    function bindDeleteModal(modal, items) {
+        const confirm = document.getElementById('confirmDeleteMarcacionesButton');
+        const message = document.getElementById('deleteMarcacionesMessage');
+        const progressBox = document.getElementById('deleteMarcacionesProgressBox');
+        const progressContent = document.getElementById('deleteMarcacionesProgressContent');
+
+        confirm.addEventListener('click', async function () {
+            confirm.disabled = true;
+            progressBox.classList.remove('d-none');
+            progressContent.innerHTML = '<div>Estado: Iniciando eliminación...</div>';
+
+            try {
+                const response = await fetch(deleteUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': antiForgeryToken },
+                    body: JSON.stringify({ userId: focusedEmployeeId, items: items })
+                });
+                const result = await response.json();
+
+                progressBox.classList.add('d-none');
+
+                if (!response.ok || !result.success) {
+                    showMessage(message, result.message || 'No fue posible eliminar las marcaciones.', false);
+                    confirm.disabled = false;
+                    return;
+                }
+
+                showMessage(message, result.message || 'Marcación(es) eliminada(s) correctamente.', true);
+                await loadMarks();
+                setTimeout(() => modal.hide(), 700);
+            } catch {
+                showMessage(message, 'No fue posible completar la operación.', false);
+                confirm.disabled = false;
+            }
+        });
+    }
+
+    function showMessage(element, message, success) {
+        element.className = success ? 'alert alert-success' : 'alert alert-danger';
+        element.textContent = message;
+        element.classList.remove('d-none');
+    }
+
+    function formatDateTime(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString('es-PE', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        }).replace(',', '');
+    }
+
+    function formatDateTimeSeconds(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        const p = n => String(n).padStart(2, '0');
+        return `${date.getFullYear()}/${p(date.getMonth()+1)}/${p(date.getDate())} ` +
+               `${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+    }
+})();
+</script>
+}
