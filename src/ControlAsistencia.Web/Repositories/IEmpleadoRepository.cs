@@ -4,7 +4,7 @@ namespace ControlAsistencia.Web.Repositories;
 
 public interface IEmpleadoRepository
 {
-    Task<(IReadOnlyList<EmpleadoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize);
+    Task<(IReadOnlyList<EmpleadoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null);
     Task<EmpleadoDTO?> GetByIdAsync(int userId);
     Task<bool> ExistsBadgeNumberAsync(string badgeNumber, int? excludeUserId = null);
     Task<bool> DepartmentExistsAsync(int deptId);

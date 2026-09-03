@@ -19,7 +19,7 @@ public class HorarioRepository : IHorarioRepository
             ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'ControlAsistenciaDb'.");
     }
 
-    public async Task<(IReadOnlyList<HorarioDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize)
+    public async Task<(IReadOnlyList<HorarioDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null)
     {
         const string sql = @"
 SELECT 
@@ -33,10 +33,13 @@ SELECT
     CHECKIN AS CHECKIN, 
     CHECKOUT AS CHECKOUT
 FROM dbo.SchClass WITH (NOLOCK)
+WHERE (@Search IS NULL OR SCHNAME LIKE '%' + @Search + '%')
 ORDER BY SCHNAME ASC
 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-SELECT COUNT(1) FROM dbo.SchClass WITH (NOLOCK);";
+SELECT COUNT(1)
+FROM dbo.SchClass WITH (NOLOCK)
+WHERE (@Search IS NULL OR SCHNAME LIKE '%' + @Search + '%');";
 
         try
         {
@@ -44,7 +47,8 @@ SELECT COUNT(1) FROM dbo.SchClass WITH (NOLOCK);";
             await using var multi = await connection.QueryMultipleAsync(sql, new 
             { 
                 Offset = (pageNumber - 1) * pageSize, 
-                PageSize = pageSize 
+                PageSize = pageSize,
+                Search = search
             });
             //return ((await multi.ReadAsync<HorarioDTO>()).ToList(), await multi.ReadFirstAsync<int>());
             var items = (await multi.ReadAsync<HorarioDTO>()).ToList();

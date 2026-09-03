@@ -26,7 +26,7 @@ public class EmpleadoRepository : IEmpleadoRepository
             ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'ControlAsistenciaDb'.");
     }
 
-    public async Task<(IReadOnlyList<EmpleadoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize)
+    public async Task<(IReadOnlyList<EmpleadoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null)
     {
         const string sql = @"
 SELECT
@@ -50,11 +50,13 @@ SELECT
     U.CardNo AS CardNo
 FROM dbo.USERINFO U WITH (NOLOCK)
 LEFT JOIN dbo.DEPARTMENTS D WITH (NOLOCK) ON D.DEPTID = U.DEFAULTDEPTID
+WHERE (@Search IS NULL OR U.NAME LIKE '%' + @Search + '%')
 ORDER BY U.BADGENUMBER DESC
 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 
 SELECT COUNT(1)
-FROM dbo.USERINFO WITH (NOLOCK);";
+FROM dbo.USERINFO U WITH (NOLOCK)
+WHERE (@Search IS NULL OR U.NAME LIKE '%' + @Search + '%');";
 
         try
         {
@@ -62,7 +64,8 @@ FROM dbo.USERINFO WITH (NOLOCK);";
             await using var multi = await connection.QueryMultipleAsync(sql, new
             {
                 Offset = (pageNumber - 1) * pageSize,
-                PageSize = pageSize
+                PageSize = pageSize,
+                Search = search
             });
 
             var items = (await multi.ReadAsync<EmpleadoDTO>()).ToList();

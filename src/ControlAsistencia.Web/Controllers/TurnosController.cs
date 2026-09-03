@@ -14,14 +14,15 @@ public class TurnosController : Controller
 
     public TurnosController(ITurnoRepository repository) => _repository = repository;
 
-    public async Task<IActionResult> Index(int page = 1)
+    public async Task<IActionResult> Index(string? search, int page = 1)
     {
         var currentPage = page <= 0 ? 1 : page;
+        search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         try
         {
-            var result = await _repository.GetPagedAsync(currentPage, PageSize);
+            var result = await _repository.GetPagedAsync(currentPage, PageSize, search);
             await _repository.RegisterViewAuditAsync("Listado", GetOperatorName(), GetMachineAlias());
-            return View(new TurnoIndexViewModel { Turnos = result.Items, PageNumber = currentPage, PageSize = PageSize, TotalRecords = result.TotalRecords });
+            return View(new TurnoIndexViewModel { Turnos = result.Items, PageNumber = currentPage, PageSize = PageSize, TotalRecords = result.TotalRecords, Search = search });
         }
         catch (Exception ex)
         {

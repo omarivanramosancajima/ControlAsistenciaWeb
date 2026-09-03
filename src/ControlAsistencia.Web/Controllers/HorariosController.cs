@@ -18,18 +18,19 @@ public class HorariosController : Controller
         _repository = repository;
     }
 
-    public async Task<IActionResult> Index(int page = 1)
+    public async Task<IActionResult> Index(string? search, int page = 1)
     {
         var currentPage = page <= 0 ? 1 : page;
+        search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         string x = "1.0";
         try
         {
             x = "1.1";
-            var result = await _repository.GetPagedAsync(currentPage, PageSize);
+            var result = await _repository.GetPagedAsync(currentPage, PageSize, search);
             x = "1.2";
             if (result.Items.Count > 0) await _repository.RegisterViewAuditAsync(result.Items[0].SchName, GetOperatorName(), GetMachineAlias());
             x = "1.3";
-            return View(new HorarioIndexViewModel { Horarios = result.Items, PageNumber = currentPage, PageSize = PageSize, TotalRecords = result.TotalRecords });
+            return View(new HorarioIndexViewModel { Horarios = result.Items, PageNumber = currentPage, PageSize = PageSize, TotalRecords = result.TotalRecords, Search = search });
         }
         catch (Exception ex)
         {

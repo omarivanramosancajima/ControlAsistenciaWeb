@@ -18,19 +18,22 @@ public class TurnoRepository : ITurnoRepository
             ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'ControlAsistenciaDb'.");
     }
 
-    public async Task<(IReadOnlyList<TurnoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize)
+    public async Task<(IReadOnlyList<TurnoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null)
     {
         const string sql = @"
 SELECT NUM_RUNID, OLDID, NAME, STARTDATE, ENDDATE, CYLE, UNITS
 FROM dbo.NUM_RUN WITH (NOLOCK)
+WHERE (@Search IS NULL OR NAME LIKE '%' + @Search + '%')
 ORDER BY NAME ASC
 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-SELECT COUNT(1) FROM dbo.NUM_RUN WITH (NOLOCK);";
+SELECT COUNT(1)
+FROM dbo.NUM_RUN WITH (NOLOCK)
+WHERE (@Search IS NULL OR NAME LIKE '%' + @Search + '%');";
         try
         {
             await using var connection = new SqlConnection(_connectionString);
-            await using var multi = await connection.QueryMultipleAsync(sql, new { Offset = (pageNumber - 1) * pageSize, PageSize = pageSize });
+            await using var multi = await connection.QueryMultipleAsync(sql, new { Offset = (pageNumber - 1) * pageSize, PageSize = pageSize, Search = search });
             return ((await multi.ReadAsync<TurnoDTO>()).ToList(), await multi.ReadFirstAsync<int>());
         }
         catch (SqlException ex) { throw new InvalidOperationException("Ocurrió un error SQL al obtener el listado de turnos.", ex); }

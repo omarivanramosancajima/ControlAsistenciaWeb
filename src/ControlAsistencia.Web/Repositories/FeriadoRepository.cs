@@ -17,7 +17,7 @@ public class FeriadoRepository : IFeriadoRepository
             ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'ControlAsistenciaDb'.");
     }
 
-    public async Task<(IReadOnlyList<FeriadoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize)
+    public async Task<(IReadOnlyList<FeriadoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null)
     {
         const string sql = @"
 SELECT 
@@ -25,11 +25,13 @@ SELECT
     HolidayName,
     STARTTIME AS StartTime
 FROM dbo.HOLIDAYS WITH (NOLOCK)
+WHERE (@Search IS NULL OR HolidayName LIKE '%' + @Search + '%')
 ORDER BY StartTime DESC
 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 
 SELECT COUNT(1)
-FROM dbo.HOLIDAYS WITH (NOLOCK);";
+FROM dbo.HOLIDAYS WITH (NOLOCK)
+WHERE (@Search IS NULL OR HolidayName LIKE '%' + @Search + '%');";
 
         try
         {
@@ -37,7 +39,8 @@ FROM dbo.HOLIDAYS WITH (NOLOCK);";
             await using var multi = await connection.QueryMultipleAsync(sql, new
             {
                 Offset = (pageNumber - 1) * pageSize,
-                PageSize = pageSize
+                PageSize = pageSize,
+                Search = search
             });
 
             var items = (await multi.ReadAsync<FeriadoDTO>()).ToList();

@@ -18,11 +18,14 @@ public class EmpleadosController : Controller
         _empleadoRepository = empleadoRepository;
     }
 
-    public async Task<IActionResult> Index(int page = 1)
+    public async Task<IActionResult> Index(string? search, int page = 1)
     {
+        var currentPage = page <= 0 ? 1 : page;
+        search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+
         try
         {
-            var result = await _empleadoRepository.GetPagedAsync(page <= 0 ? 1 : page, PageSize);
+            var result = await _empleadoRepository.GetPagedAsync(currentPage, PageSize, search);
 
             if (result.Items.Count > 0)
             {
@@ -32,9 +35,10 @@ public class EmpleadosController : Controller
             var model = new EmpleadoIndexViewModel
             {
                 Empleados = result.Items,
-                PageNumber = page <= 0 ? 1 : page,
+                PageNumber = currentPage,
                 PageSize = PageSize,
-                TotalRecords = result.TotalRecords
+                TotalRecords = result.TotalRecords,
+                Search = search
             };
 
             return View(model);

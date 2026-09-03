@@ -19,11 +19,15 @@ public class ExcepcionesController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(int page = 1)
+    public async Task<IActionResult> Index(string? search, int page = 1)
     {
-        var (items, totalRecords) = await _repository.GetPagedAsync(page, PageSize);
+        var currentPage = page <= 0 ? 1 : page;
+        search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+
+        var (items, totalRecords) = await _repository.GetPagedAsync(currentPage, PageSize, search);
         foreach (var item in items) await _repository.RegisterViewAuditAsync(item.LeaveName, GetOperatorName(), GetMachineAlias());
-        ViewBag.CurrentPage = page;
+        ViewBag.CurrentPage = currentPage;
+        ViewBag.Search = search;
         ViewBag.TotalPages = (int)Math.Ceiling(totalRecords / (double)PageSize);
         return View(items);
     }

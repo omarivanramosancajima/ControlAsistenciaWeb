@@ -4,7 +4,7 @@ namespace ControlAsistencia.Web.Repositories;
 
 public interface ITurnoRepository
 {
-    Task<(IReadOnlyList<TurnoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize);
+    Task<(IReadOnlyList<TurnoDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null);
     Task<IReadOnlyList<TurnoDTO>> GetAllForScheduleAssignmentAsync();
     Task<TurnoDTO?> GetByIdAsync(int numRunId);
     Task<bool> ExistsByNameAsync(string name, int? excludeId = null);

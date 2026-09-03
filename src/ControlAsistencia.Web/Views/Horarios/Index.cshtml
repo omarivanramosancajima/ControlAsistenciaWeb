@@ -7,7 +7,13 @@
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h1 class="h4 mb-0">Horarios</h1>
-        <a asp-action="Create" class="btn btn-primary">Nuevo horario</a>
+        <div class="d-flex align-items-center gap-2">
+            <form asp-action="Index" method="get" class="d-flex gap-2">
+                <input type="text" name="search" value="@Model.Search" class="form-control form-control-sm" placeholder="Buscar por nombre..." maxlength="100" aria-label="Buscar por nombre" />
+                <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
+            </form>
+            <a asp-action="Create" class="btn btn-primary">Nuevo horario</a>
+        </div>
     </div>
     <div class="card-body">
         @if (TempData["SuccessMessage"] is string successMessage)
@@ -68,12 +74,12 @@
         {
             <nav aria-label="Paginación de horarios">
                 <ul class="pagination justify-content-end mb-0">
-                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : null)"><a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber - 1)">Anterior</a></li>
+                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : null)"><a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber - 1)" asp-route-search="@Model.Search">Anterior</a></li>
                     @for (var i = 1; i <= Model.TotalPages; i++)
                     {
-                        <li class="page-item @(i == Model.PageNumber ? "active" : null)"><a class="page-link" asp-action="Index" asp-route-page="@i">@i</a></li>
+                        <li class="page-item @(i == Model.PageNumber ? "active" : null)"><a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-search="@Model.Search">@i</a></li>
                     }
-                    <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : null)"><a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber + 1)">Siguiente</a></li>
+                    <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : null)"><a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber + 1)" asp-route-search="@Model.Search">Siguiente</a></li>
                 </ul>
             </nav>
         }

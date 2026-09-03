@@ -6,9 +6,15 @@
 <div class="card" shadow-sm>
     <div class="card-header d-flex justify-content-between align-items-center">
         <h1 class="h4 mb-0">Feriados</h1>
-        <a asp-action="Create" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Nuevo Feriado
-        </a>
+        <div class="d-flex align-items-center gap-2">
+            <form asp-action="Index" method="get" class="d-flex gap-2">
+                <input type="text" name="search" value="@ViewBag.Search" class="form-control form-control-sm" placeholder="Buscar por nombre..." maxlength="100" aria-label="Buscar por nombre" />
+                <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
+            </form>
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nuevo Feriado
+            </a>
+        </div>
     </div>
     <div class="card-body">
         @if (TempData["SuccessMessage"] != null)
@@ -63,19 +69,19 @@
                     @if (ViewBag.CurrentPage > 1)
                     {
                         <li class="page-item">
-                            <a class="page-link" asp-action="Index" asp-route-page="@(ViewBag.CurrentPage - 1)">Anterior</a>
+                            <a class="page-link" asp-action="Index" asp-route-page="@(ViewBag.CurrentPage - 1)" asp-route-search="@ViewBag.Search">Anterior</a>
                         </li>
                     }
                     @for (int i = 1; i <= ViewBag.TotalPages; i++)
                     {
                         <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
-                            <a class="page-link" asp-action="Index" asp-route-page="@i">@i</a>
+                            <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-search="@ViewBag.Search">@i</a>
                         </li>
                     }
                     @if (ViewBag.CurrentPage < ViewBag.TotalPages)
                     {
                         <li class="page-item">
-                            <a class="page-link" asp-action="Index" asp-route-page="@(ViewBag.CurrentPage + 1)">Siguiente</a>
+                            <a class="page-link" asp-action="Index" asp-route-page="@(ViewBag.CurrentPage + 1)" asp-route-search="@ViewBag.Search">Siguiente</a>
                         </li>
                     }
                 </ul>

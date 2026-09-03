@@ -25,21 +25,23 @@ public class ExcepcionRepository : IExcepcionRepository
             ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'ControlAsistenciaDb'.");
     }
 
-    public async Task<(IReadOnlyList<ExcepcionDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize)
+    public async Task<(IReadOnlyList<ExcepcionDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null)
     {
         const string sql = @"
 SELECT LeaveId, LeaveName, MinUnit, Unit, ReportSymbol, Classify
 FROM dbo.LeaveClass WITH (NOLOCK)
+WHERE (@Search IS NULL OR LeaveName LIKE '%' + @Search + '%')
 ORDER BY LeaveName ASC
 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 
 SELECT COUNT(1)
-FROM dbo.LeaveClass WITH (NOLOCK);";
+FROM dbo.LeaveClass WITH (NOLOCK)
+WHERE (@Search IS NULL OR LeaveName LIKE '%' + @Search + '%');";
 
         try
         {
             await using var connection = new SqlConnection(_connectionString);
-            await using var multi = await connection.QueryMultipleAsync(sql, new { Offset = (pageNumber - 1) * pageSize, PageSize = pageSize });
+            await using var multi = await connection.QueryMultipleAsync(sql, new { Offset = (pageNumber - 1) * pageSize, PageSize = pageSize, Search = search });
             return ((await multi.ReadAsync<ExcepcionDTO>()).ToList(), await multi.ReadFirstAsync<int>());
         }
         catch (SqlException ex)

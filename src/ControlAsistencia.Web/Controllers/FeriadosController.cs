@@ -21,12 +21,15 @@ public class FeriadosController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(int page = 1)
+    public async Task<IActionResult> Index(string? search, int page = 1)
     {
         try
         {
             const int pageSize = 10;
-            var (items, totalRecords) = await _repository.GetPagedAsync(page, pageSize);
+            var currentPage = page <= 0 ? 1 : page;
+            search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+
+            var (items, totalRecords) = await _repository.GetPagedAsync(currentPage, pageSize, search);
 
             // Registrar auditoría para cada feriado en la página
             var operatorName = User.Identity?.Name ?? "Unknown";
@@ -36,7 +39,8 @@ public class FeriadosController : Controller
                 await _repository.RegisterViewAuditAsync(item.HolidayName, operatorName, machineAlias);
             }
 
-            ViewBag.CurrentPage = page;
+            ViewBag.CurrentPage = currentPage;
+            ViewBag.Search = search;
             ViewBag.TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize);
             return View(items);
         }

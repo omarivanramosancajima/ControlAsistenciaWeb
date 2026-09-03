@@ -34,7 +34,8 @@
                                     Maestros de Asistencia
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Empresa-y-Areas" asp-action="Index">Empresa y Áreas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Empresas" asp-action="Index">Empresas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Areas" asp-action="Index">Áreas</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Empleados" asp-action="Index">Empleados</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Horarios" asp-action="Index">Horarios</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Turnos" asp-action="Index">Turnos</a></li>
@@ -56,7 +57,8 @@
                                     <li><a class="dropdown-item" asp-area="" asp-controller="ProgramarTurno" asp-action="Index">Programar Turno</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="TurnosdelEmpleado" asp-action="Index">Turnos del Empleado</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="JustificarEmpleado" asp-action="Index">Justificar Empleado</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="MarcacionManual" asp-action="Index">Marcación del Personal</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="MarcacionEmpleado" asp-action="Index">Marcación del Personal</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReubicacionEmpleado" asp-action="Index">Reubicación del Personal</a></li>
                                     <!--
 s                                    <li><a class="dropdown-item" asp-area="" asp-controller="Distribución-del-Personal" asp-action="Index">Distribución del Personal</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Autorización-de-HE" asp-action="Index">Autorización de H.E.</a></li>
@@ -88,14 +90,15 @@ s                                    <li><a class="dropdown-item" asp-area="" as
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Visor-de-Asistencias" asp-action="Index">Visor de Asistencias</a></li>                                    
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Turnos-y-Horarios" asp-action="Index">Turnos y Horarios</a></li>
                                     //-->
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Entradas-y-Salidas" asp-action="Index">Entradas y Salidas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="EntradasySalidas" asp-action="Index">Entradas y Salidas</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index">Reporte de Asistencia</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-Tardanzas" asp-action="Index">Reporte de Tardanzas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-Faltas" asp-action="Index">Reporte de Faltas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-Inconsistencias" asp-action="Index">Reporte de Inconsistencias</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-Marcas" asp-action="Index">Reporte de Marcas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Resumen-de-Asistencia" asp-action="Index">Resumen de Asistencia</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeTardanzas" asp-action="Index">Reporte de Tardanzas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeSalidasTempranas" asp-action="Index">Reporte de Salidas Tempranas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeFaltas" asp-action="Index">Reporte de Faltas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeInconsistencias" asp-action="Index">Reporte de Inconsistencias</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ResumendeAsistencia" asp-action="Index">Resumen de Asistencia</a></li>
                                     <!--
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-Marcas" asp-action="Index">Reporte de Marcas</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Resumen-por-Area" asp-action="Index">Resumen por Área</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-HE" asp-action="Index">Reporte de H.E.</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Cuadro-de-Asistencia" asp-action="Index">Cuadro de Asistencia</a></li>
@@ -108,12 +111,14 @@ s                                    <li><a class="dropdown-item" asp-area="" as
                                     Configuración
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Opciones-del-Sistema" asp-action="Index">Opciones del Sistema</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Reglas-de-Asistencia" asp-action="Index">Reglas de Asistencia</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Acceso-al-Sistema" asp-action="Index">Acceso al Sistema</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Permisos-del-Usuario" asp-action="Index">Permisos del Usuario</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Auditoria" asp-action="Index">Auditoría</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Acerca-De" asp-action="Index">Acerca De</a></li>
+                                    <!--
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Permisos-del-Usuario" asp-action="Index">Permisos del Usuario</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Opciones-del-Sistema" asp-action="Index">Opciones del Sistema</a></li>
+                                    //-->
                                 </ul>
                             </li>
                         }
