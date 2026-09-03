@@ -13,9 +13,14 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         var accumulation = new AttendancePersonAccumulation();
         var results = new List<AttendanceDayResult>();
 
+        // [ASISTWEB][SEC.01.05][APROBADO 02.09.2026]
+        // Estado interno del procesamiento: una marca consumida por una jornada
+        // no puede volver a participar en una jornada posterior.
+        var processedMarkJornadas = new Dictionary<string, DateOnly>(StringComparer.Ordinal);
+
         foreach (var dayContext in context.Days)
         {
-            var result = CalculateDay(dayContext, accumulation);
+            var result = CalculateDay(dayContext, accumulation, processedMarkJornadas);
 
             // Sec.02/03 can intentionally discard a calendar day. A discarded day
             // is not exposed through AttendanceCalculationResult.Days.
@@ -36,18 +41,29 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     public AttendanceDayResult CalculateDay(AttendanceCalculationDayContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return CalculateDay(context, new AttendancePersonAccumulation());
+        return CalculateDay(
+            context,
+            new AttendancePersonAccumulation(),
+            new Dictionary<string, DateOnly>(StringComparer.Ordinal));
     }
 
-    private AttendanceDayResult CalculateDay(AttendanceCalculationDayContext context, AttendancePersonAccumulation accumulation)
+    private AttendanceDayResult CalculateDay(
+        AttendanceCalculationDayContext context,
+        AttendancePersonAccumulation accumulation,
+        IDictionary<string, DateOnly> processedMarkJornadas)
     {
         // [ASISTWEB][SEC.03.06.01] El motor opera las marcas con precisión de minuto.
         // Los segundos no participan en selección ni en cálculos.
         // [ASISTWEB][SEC.03.06.01 / SEC.02.01]
         // Evita que el mismo registro físico, repetido por un JOIN del proveedor,
         // sea interpretado como dos marcaciones distintas y produzca Entrada=Salida.
-        var orderedMarks = NormalizeAndDeduplicateMarks(context.Marks);
-        var orderedNextDayMarks = NormalizeAndDeduplicateMarks(context.NextDayMarks);
+        var orderedMarks = NormalizeAndDeduplicateMarks(context.Marks)
+            .Where(mark => !processedMarkJornadas.ContainsKey(BuildMarkIdentity(mark)))
+            .ToList();
+
+        var orderedNextDayMarks = NormalizeAndDeduplicateMarks(context.NextDayMarks)
+            .Where(mark => !processedMarkJornadas.ContainsKey(BuildMarkIdentity(mark)))
+            .ToList();
 
         var resolvedException = ResolveException(context);
         var result = CreateBaseResult(context);
@@ -60,12 +76,26 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
 
         if (context.IsNoSchedule || context.Schedule is null || !context.Schedule.HasSchedule)
         {
-            CalculateNoSchedule(context, orderedMarks, orderedNextDayMarks, resolvedException, result, accumulation);
+            CalculateNoSchedule(
+                context,
+                orderedMarks,
+                orderedNextDayMarks,
+                resolvedException,
+                result,
+                accumulation,
+                processedMarkJornadas);
             FinalizePresenceDuration(context, result);
             return result;
         }
 
-        CalculateScheduledDay(context, orderedMarks, resolvedException, result, accumulation);
+        CalculateScheduledDay(
+            context,
+            orderedMarks,
+            orderedNextDayMarks,
+            resolvedException,
+            result,
+            accumulation,
+            processedMarkJornadas);
         FinalizePresenceDuration(context, result);
         return result;
     }
@@ -81,6 +111,22 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             .ThenBy(x => x.Source)
             .ThenBy(x => x.RecordId)
             .ToList();
+    }
+
+    // [ASISTWEB][SEC.01.05][APROBADO 02.09.2026]
+    // Registro interno en memoria de la jornada que consumió la marca.
+    // No modifica CHECKINOUT/CHECKEXACT ni ninguna tabla de BD.
+    private static void MarkAsProcessed(
+        AttendanceMark? mark,
+        DateOnly jornadaInicio,
+        IDictionary<string, DateOnly> processedMarkJornadas)
+    {
+        if (mark is null)
+        {
+            return;
+        }
+
+        processedMarkJornadas[BuildMarkIdentity(mark)] = jornadaInicio;
     }
 
     private static string BuildMarkIdentity(AttendanceMark mark)
@@ -173,7 +219,8 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         IReadOnlyList<AttendanceMark> orderedNextDayMarks,
         ExceptionResolution resolvedException,
         AttendanceDayResult result,
-        AttendancePersonAccumulation accumulation)
+        AttendancePersonAccumulation accumulation,
+        IDictionary<string, DateOnly> processedMarkJornadas)
     {
         // [ASISTWEB][SEC.02]
         if (orderedMarks.Count == 0)
@@ -252,6 +299,11 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             result.ExitMark = nextDayClosure;
             result.IntermediateMarks = Array.Empty<AttendanceMark>();
 
+            // La jornada sin turno consumió ambas marcas: la del día de inicio
+            // y el cierre L del día siguiente. Ninguna podrá reaparecer.
+            MarkAsProcessed(orderedMarks[0], context.CalculationDate, processedMarkJornadas);
+            MarkAsProcessed(nextDayClosure, context.CalculationDate, processedMarkJornadas);
+
             var rawDuration = nextDayClosure.Timestamp - orderedMarks[0].Timestamp;
             var netDuration = ApplyAutomaticBreakDeduction(context.Schedule, rawDuration);
 
@@ -270,6 +322,9 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         result.ExitMark = orderedMarks.Last();
         result.IntermediateMarks = orderedMarks.Skip(1).Take(orderedMarks.Count - 2).ToList();
 
+        MarkAsProcessed(result.EntryMark, context.CalculationDate, processedMarkJornadas);
+        MarkAsProcessed(result.ExitMark, context.CalculationDate, processedMarkJornadas);
+
         var duration = result.ExitMark.Timestamp - result.EntryMark.Timestamp;
         var effective = ApplyAutomaticBreakDeduction(context.Schedule, duration);
         result.EffectiveWorkDuration = effective;
@@ -284,9 +339,11 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
     private static void CalculateScheduledDay(
         AttendanceCalculationDayContext context,
         IReadOnlyList<AttendanceMark> orderedMarks,
+        IReadOnlyList<AttendanceMark> orderedNextDayMarks,
         ExceptionResolution resolvedException,
         AttendanceDayResult result,
-        AttendancePersonAccumulation accumulation)
+        AttendancePersonAccumulation accumulation,
+        IDictionary<string, DateOnly> processedMarkJornadas)
     {
         // [ASISTWEB][SEC.03]
         var schedule = context.Schedule!;
@@ -317,9 +374,39 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
             return;
         }
 
-        // [ASISTWEB][SEC.03.06.01] Selección literal v01.04 para días CON TURNO usando DateTime normalizados de SEC.03.03 y SEC.03.04.
-        var entryMark = orderedMarks.FirstOrDefault(mark => !mark.IsPreviousDayClosureMark && IsWithinEntryWindow(mark.Timestamp, entryWindow.Start, entryWindow.End));
-        var exitMark = orderedMarks.LastOrDefault(mark => !mark.IsPreviousDayClosureMark && IsWithinExitWindow(mark.Timestamp, exitWindow.Start, exitWindow.End));
+        // [ASISTWEB][SEC.03.06.01][APROBADO 02.09.2026]
+        // La entrada SOLO puede salir de las marcas SIN_JORNADA del día actual.
+        // La salida de una amanecida puede consumir además una marca SIN_JORNADA
+        // del día siguiente, únicamente si cae dentro de la ventana de salida.
+        var entryMark = orderedMarks
+            .Where(mark => !mark.IsPreviousDayClosureMark)
+            .FirstOrDefault(mark => IsWithinEntryWindow(mark.Timestamp, entryWindow.Start, entryWindow.End));
+
+        IEnumerable<AttendanceMark> exitCandidates = orderedMarks
+            .Where(mark => !mark.IsPreviousDayClosureMark && IsWithinExitWindow(mark.Timestamp, exitWindow.Start, exitWindow.End));
+
+        // [ASISTWEB][SEC.03.03][SEC.03.04][SEC.03.06.01]
+        // La amanecida se determina a partir de las fechas NORMALIZADAS del horario.
+        // Esto evita depender exclusivamente de SDAYS/EDAYS para decidir si la salida
+        // pertenece al día siguiente. ResolveScheduleBounds ya construyó ScheduledEnd
+        // con fecha +1 cuando ENDTIME cruza medianoche.
+        var isOvernight = scheduleBounds.ScheduledEnd.Date > scheduleBounds.ScheduledStart.Date;
+
+        if (isOvernight)
+        {
+            // [ASISTWEB][SEC.03.06.01]
+            // Solo marcas SIN_JORNADA del día siguiente y dentro de la ventana de salida.
+            exitCandidates = exitCandidates.Concat(
+                orderedNextDayMarks.Where(mark =>
+                    !mark.IsPreviousDayClosureMark &&
+                    IsWithinExitWindow(mark.Timestamp, exitWindow.Start, exitWindow.End)));
+        }
+
+        var exitMark = exitCandidates
+            .OrderBy(mark => mark.Timestamp)
+            .ThenBy(mark => mark.Source)
+            .ThenBy(mark => mark.RecordId)
+            .LastOrDefault();
 
         result.EntryMark = entryMark;
         result.ExitMark = exitMark;
@@ -362,6 +449,13 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
                 return;
             }
         }
+
+        // [ASISTWEB][SEC.01.05][SEC.03.06.01][APROBADO 02.09.2026]
+        // Solo después de confirmar una jornada no terminal se consumen las marcas
+        // realmente utilizadas. Las jornadas terminales por ausencia (e*/s*) dejaron
+        // las marcas disponibles para una evaluación posterior.
+        MarkAsProcessed(result.EntryMark, context.CalculationDate, processedMarkJornadas);
+        MarkAsProcessed(result.ExitMark, context.CalculationDate, processedMarkJornadas);
 
         // [ASISTWEB][SEC.03.06.03][SEC.03.06.04]
         result.OvertimeDuration = ResolveScheduledOvertime(
@@ -643,7 +737,7 @@ public class AttendanceCalculationEngine : IAttendanceCalculationEngine
         => timestamp >= start && timestamp < end;
 
     private static bool IsWithinExitWindow(DateTime timestamp, DateTime start, DateTime end)
-        => timestamp >= start && timestamp <= end;
+        => timestamp >= start && timestamp < end;
 
     private static DateTime CombineDateWithTime(DateTime date, TimeOnly time)
         => date.Date.Add(time.ToTimeSpan());
