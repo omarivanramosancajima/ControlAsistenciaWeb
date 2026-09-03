@@ -1,0 +1,737 @@
+@model ControlAsistencia.Web.Models.JustificarEmpleadoIndexViewModel
+
+@{
+    ViewData["Title"] = "Justificar Empleado";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Justificar Empleado</h1>
+    </div>
+
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Departamentos / Áreas</h2>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="includeSubDependencies" />
+                        <label class="form-check-label" for="includeSubDependencies">
+                            Incluir Sub-Dependencias
+                        </label>
+                    </div>
+
+                    <div class="list-group overflow-auto" id="departmentList">
+                        @if (Model.Departments.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">No existen departamentos registrados.</div>
+                        }
+                        else
+                        {
+                            foreach (var department in Model.Departments)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action department-selector"
+                                        data-dept-id="@department.DeptId">
+                                    <span class="d-inline-block ps-@Math.Min(department.Level * 2, 5)">
+                                        @department.DeptName
+                                    </span>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="d-flex flex-column gap-3">
+                    <div class="border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Relación de Personal</h2>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllEmployees" />
+                            <label class="form-check-label" for="selectAllEmployees">
+                                Seleccionar todas las personas
+                            </label>
+                        </div>
+
+                        <div class="table-responsive employee-panel-scroll">
+                            <table class="table table-hover align-middle mb-0" id="employeesTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th></th>
+                                        <th>Código</th>
+                                        <th>DNI</th>
+                                        <th>Nombre</th>
+                                        <th>Área</th>
+                                        <th>Foto</th>
+                                        <th>Perfil</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            Seleccione un departamento o área.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-3">
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Relación de excepciones asignadas al personal</h2>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-primary btn-sm" id="assignExceptionButton">
+                                    Asignar
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="deleteExceptionButton">
+                                    Borrar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive assignment-panel-scroll">
+                            <table class="table table-hover align-middle mb-0" id="exceptionsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th></th>
+                                        <th>Nombre de Excepción</th>
+                                        <th>Fecha de Inicio</th>
+                                        <th>Fecha de Fin</th>
+                                        <th>Motivo</th>
+                                        <th>Unidad</th>
+                                        <th>Símbolo</th>
+                                        <th>Clasificación</th>
+                                        <th>Fecha de Ingreso</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted py-4">
+                                            Seleccione una persona para consultar sus excepciones.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="justificarEmpleadoModalContainer"></div>
+
+@section Scripts {
+<script>
+    (function () {
+        const employeesByDepartmentUrl = '@Url.Action("EmpleadosPorDepartamento", "JustificarEmpleado")';
+        const exceptionsByPersonUrl = '@Url.Action("ExcepcionesPorPersona", "JustificarEmpleado")';
+        const availableExceptionsUrl = '@Url.Action("ExcepcionesDisponibles", "JustificarEmpleado")';
+        const assignUrl = '@Url.Action("AsignarExcepcion", "JustificarEmpleado")';
+        const confirmDeleteUrl = '@Url.Action("ConfirmarEliminar", "JustificarEmpleado")';
+        const deleteUrl = '@Url.Action("EliminarExcepciones", "JustificarEmpleado")';
+        const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+        const includeSubDependencies = document.getElementById('includeSubDependencies');
+        const selectAllEmployees = document.getElementById('selectAllEmployees');
+        const employeesTableBody = document.querySelector('#employeesTable tbody');
+        const exceptionsTableBody = document.querySelector('#exceptionsTable tbody');
+        const assignExceptionButton = document.getElementById('assignExceptionButton');
+        const deleteExceptionButton = document.getElementById('deleteExceptionButton');
+        const modalContainer = document.getElementById('justificarEmpleadoModalContainer');
+
+        let selectedDepartmentId = null;
+        let focusedEmployeeId = null;
+        let selectedEmployeeIds = new Set();
+        let visibleEmployees = [];
+        let selectedExceptionKeys = new Set();
+
+        document.querySelectorAll('.department-selector').forEach(button => {
+            button.addEventListener('click', async function () {
+                document.querySelectorAll('.department-selector')
+                    .forEach(item => item.classList.remove('active'));
+
+                this.classList.add('active');
+                selectedDepartmentId = Number(this.dataset.deptId);
+                focusedEmployeeId = null;
+                selectedExceptionKeys.clear();
+                renderExceptionsMessage();
+                await loadEmployees();
+            });
+        });
+
+        includeSubDependencies.addEventListener('change', async function () {
+            if (selectedDepartmentId) {
+                focusedEmployeeId = null;
+                selectedExceptionKeys.clear();
+                renderExceptionsMessage();
+                await loadEmployees();
+            }
+        });
+
+        selectAllEmployees.addEventListener('change', function () {
+            if (this.checked) {
+                visibleEmployees.forEach(item => selectedEmployeeIds.add(item.userId));
+            } else {
+                visibleEmployees.forEach(item => selectedEmployeeIds.delete(item.userId));
+            }
+            renderEmployees();
+        });
+
+        assignExceptionButton.addEventListener('click', async function () {
+            await openAssignModal();
+        });
+
+        deleteExceptionButton.addEventListener('click', async function () {
+            await openDeleteModal();
+        });
+
+        async function loadEmployees() {
+            if (!selectedDepartmentId) {
+                employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Seleccione un departamento o área.</td></tr>';
+                return;
+            }
+
+            employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Cargando personas...</td></tr>';
+            renderExceptionsMessage('La persona seleccionada no tiene excepciones asignadas.');
+
+            const response = await fetch(`${employeesByDepartmentUrl}?deptId=${selectedDepartmentId}&includeSubDependencies=${includeSubDependencies.checked}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                employeesTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">${escapeHtml(result.message || 'No fue posible cargar las personas.')}</td></tr>`;
+                visibleEmployees = [];
+                focusedEmployeeId = null;
+                syncSelectAllEmployees();
+                renderExceptionsMessage();
+                return;
+            }
+
+            visibleEmployees = result.items || [];
+            selectedEmployeeIds = new Set(
+                Array.from(selectedEmployeeIds)
+                    .filter(id => visibleEmployees.some(item => item.userId === id))
+            );
+
+            if (visibleEmployees.length === 0) {
+                focusedEmployeeId = null;
+                renderEmployees();
+                renderExceptionsMessage();
+                return;
+            }
+
+            focusedEmployeeId = visibleEmployees.some(item => item.userId === focusedEmployeeId)
+                ? focusedEmployeeId
+                : visibleEmployees[0].userId;
+
+            renderEmployees();
+            await loadExceptions();
+        }
+
+        function renderEmployees() {
+            if (visibleEmployees.length === 0) {
+                employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay personas asignadas a este departamento.</td></tr>';
+                syncSelectAllEmployees();
+                return;
+            }
+
+            employeesTableBody.innerHTML = visibleEmployees.map(item => {
+                const isFocused = item.userId === focusedEmployeeId;
+                const isChecked = selectedEmployeeIds.has(item.userId);
+                const photoContent = item.photoBase64
+                    ? `<img src="${item.photoBase64}" alt="Foto" class="img-thumbnail employee-photo-thumb" />`
+                    : '<div class="border rounded d-inline-flex align-items-center justify-content-center bg-light text-muted employee-photo-thumb">N/D</div>';
+
+                return `
+                    <tr class="employee-row ${isFocused ? 'table-primary' : ''}" data-user-id="${item.userId}">
+                        <td>
+                            <input type="checkbox" class="form-check-input employee-checkbox" data-user-id="${item.userId}" ${isChecked ? 'checked' : ''} />
+                        </td>
+                        <td>${escapeHtml(item.badgeNumber || '')}</td>
+                        <td>${escapeHtml(item.ssn || '')}</td>
+                        <td>${escapeHtml(item.name || '')}</td>
+                        <td>${escapeHtml(item.departmentName || '')}</td>
+                        <td>${photoContent}</td>
+                        <td>${escapeHtml(item.privilegeDescription || 'Desconocido')}</td>
+                    </tr>`;
+            }).join('');
+
+            employeesTableBody.querySelectorAll('.employee-row').forEach(row => {
+                row.addEventListener('click', async function (event) {
+                    if (event.target.closest('.employee-checkbox')) return;
+
+                    focusedEmployeeId = Number(this.dataset.userId);
+                    selectedExceptionKeys.clear();
+                    renderEmployees();
+                    await loadExceptions();
+                });
+            });
+
+            employeesTableBody.querySelectorAll('.employee-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('click', event => event.stopPropagation());
+                checkbox.addEventListener('change', function () {
+                    const userId = Number(this.dataset.userId);
+                    if (this.checked) selectedEmployeeIds.add(userId);
+                    else selectedEmployeeIds.delete(userId);
+                    syncSelectAllEmployees();
+                });
+            });
+
+            syncSelectAllEmployees();
+        }
+
+        async function loadExceptions() {
+            if (!focusedEmployeeId) {
+                renderExceptionsMessage();
+                return;
+            }
+
+            exceptionsTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Cargando excepciones...</td></tr>';
+
+            const response = await fetch(`${exceptionsByPersonUrl}?userId=${focusedEmployeeId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                renderExceptionsMessage(result.message || 'No fue posible cargar las excepciones.');
+                return;
+            }
+
+            const items = result.items || [];
+            selectedExceptionKeys.clear();
+
+            if (items.length === 0) {
+                renderExceptionsMessage('La persona seleccionada no tiene excepciones asignadas.');
+                return;
+            }
+
+            exceptionsTableBody.innerHTML = items.map(item => {
+                const key = buildExceptionKey(item);
+
+                return `
+                    <tr class="exception-row" data-exception-key="${escapeHtml(key)}">
+                        <td>
+                            <input type="checkbox"
+                                   class="form-check-input exception-checkbox"
+                                   data-leave-id="${item.leaveId}"
+                                   data-start-date-time="${item.startDateTime}"
+                                   data-end-date-time="${item.endDateTime || ''}" />
+                        </td>
+                        <td>${escapeHtml(item.leaveName)}</td>
+                        <td>${formatDateTime(item.startDateTime)}</td>
+                        <td>${formatDateTime(item.endDateTime)}</td>
+                        <td>${escapeHtml(item.reason || '')}</td>
+                        <td>${escapeHtml(item.unitText || '')}</td>
+                        <td>${escapeHtml(item.reportSymbol || '')}</td>
+                        <td>${escapeHtml(item.classifyText || '')}</td>
+                        <td>${formatDateTime(item.registeredAt)}</td>
+                    </tr>`;
+            }).join('');
+
+            exceptionsTableBody.querySelectorAll('.exception-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function () {
+                    const key = buildExceptionKeyFromElement(this);
+                    if (this.checked) selectedExceptionKeys.add(key);
+                    else selectedExceptionKeys.delete(key);
+                });
+            });
+        }
+
+        async function openAssignModal() {
+            const selectedEmployees = visibleEmployees.filter(item => selectedEmployeeIds.has(item.userId));
+            if (selectedEmployees.length === 0) {
+                alert('Debe seleccionar al menos una persona.');
+                return;
+            }
+
+            const response = await fetch(availableExceptionsUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                alert(result.message || 'No fue posible cargar las excepciones disponibles.');
+                return;
+            }
+
+            modalContainer.innerHTML = buildAssignModal(selectedEmployees, result.items || []);
+            const modalElement = document.getElementById('assignExcepcionModal');
+            const modal = new bootstrap.Modal(modalElement);
+            bindAssignModalEvents(modal, selectedEmployees);
+            modal.show();
+        }
+
+        function buildAssignModal(selectedEmployees, exceptions) {
+            const selectedPeople = selectedEmployees.map(item => `
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" checked disabled />
+                    <label class="form-check-label">${escapeHtml(item.badgeNumber || '')} - ${escapeHtml(item.name || '')}</label>
+                </div>`).join('');
+
+            const exceptionOptions = exceptions.map(item =>
+                `<option value="${item.leaveId}" data-unit="${item.unit}">
+                    ${escapeHtml(item.leaveName)} - ${escapeHtml(item.unitText)} - ${escapeHtml(item.classifyText)}
+                </option>`
+            ).join('');
+
+            return `
+                <div class="modal fade" id="assignExcepcionModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Asignar Excepción</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="assignExcepcionMessage" class="alert d-none"></div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Personas seleccionadas</label>
+                                    <div class="border rounded p-3 modal-selected-people-scroll">${selectedPeople}</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="assignExceptionSelect">Excepción</label>
+                                    <select class="form-select" id="assignExceptionSelect">
+                                        <option value="">Seleccione una excepción</option>
+                                        ${exceptionOptions}
+                                    </select>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="assignStartDate">Fecha de Inicio</label>
+                                        <input type="date" class="form-control" id="assignStartDate" disabled />
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="assignEndDate">Fecha de Fin</label>
+                                        <input type="date" class="form-control" id="assignEndDate" disabled />
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mt-0 d-none" id="exceptionTimeRow">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="assignStartTime">Hora de Inicio</label>
+                                        <input type="time" class="form-control" id="assignStartTime" step="60" disabled />
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="assignEndTime">Hora de Fin</label>
+                                        <input type="time" class="form-control" id="assignEndTime" step="60" disabled />
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="form-label" for="assignReason">
+                                        Motivo <span class="text-muted">(opcional, máximo 200 caracteres)</span>
+                                    </label>
+                                    <textarea class="form-control" id="assignReason" rows="2" maxlength="200"></textarea>
+                                    <div class="form-text">Máximo 200 caracteres.</div>
+                                </div>
+
+                                <div class="border rounded p-3 mt-3 d-none" id="exceptionAssignmentProgressBox">
+                                    <h6 class="mb-3">Procesando asignación</h6>
+                                    <div id="exceptionAssignmentProgressContent" class="small text-muted"></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary" id="saveAssignExceptionButton">Grabar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function bindAssignModalEvents(modal, selectedEmployees) {
+            const saveButton = document.getElementById('saveAssignExceptionButton');
+            const messageBox = document.getElementById('assignExcepcionMessage');
+            const progressBox = document.getElementById('exceptionAssignmentProgressBox');
+            const progressContent = document.getElementById('exceptionAssignmentProgressContent');
+            const exceptionSelect = document.getElementById('assignExceptionSelect');
+            const startDate = document.getElementById('assignStartDate');
+            const endDate = document.getElementById('assignEndDate');
+            const timeRow = document.getElementById('exceptionTimeRow');
+            const startTime = document.getElementById('assignStartTime');
+            const endTime = document.getElementById('assignEndTime');
+
+            exceptionSelect.addEventListener('change', function () {
+                const option = this.options[this.selectedIndex];
+                const unit = Number(option?.dataset.unit || 0);
+                const enabled = unit > 0;
+
+                startDate.disabled = !enabled;
+                endDate.disabled = !enabled;
+                startTime.disabled = unit !== 1 && unit !== 2;
+                endTime.disabled = unit !== 1 && unit !== 2;
+                timeRow.classList.toggle('d-none', unit !== 1 && unit !== 2);
+
+                if (unit === 3) {
+                    startTime.value = '';
+                    endTime.value = '';
+                }
+            });
+
+            saveButton.addEventListener('click', async function () {
+                const leaveId = Number(exceptionSelect.value || 0);
+                const startDateValue = startDate.value;
+                const endDateValue = endDate.value;
+                const unit = Number(exceptionSelect.options[exceptionSelect.selectedIndex]?.dataset.unit || 0);
+                const startTimeValue = startTime.value;
+                const endTimeValue = endTime.value;
+                const reason = document.getElementById('assignReason').value;
+
+                if (!leaveId) {
+                    showModalMessage(messageBox, 'Debe seleccionar una excepción.', false);
+                    return;
+                }
+                if (!startDateValue || !endDateValue) {
+                    showModalMessage(messageBox, 'Debe ingresar la fecha de inicio y la fecha de fin.', false);
+                    return;
+                }
+                if (startDateValue > endDateValue) {
+                    showModalMessage(messageBox, 'La fecha de inicio no puede ser mayor que la fecha fin.', false);
+                    return;
+                }
+                if ((unit === 1 || unit === 2) && (!startTimeValue || !endTimeValue)) {
+                    showModalMessage(messageBox, 'Debe ingresar la hora de inicio y la hora de fin.', false);
+                    return;
+                }
+                if ((unit === 1 || unit === 2) && startTimeValue > endTimeValue) {
+                    showModalMessage(messageBox, 'La hora de inicio no puede ser mayor que la hora fin.', false);
+                    return;
+                }
+
+                saveButton.disabled = true;
+                progressBox.classList.remove('d-none');
+                progressContent.innerHTML = '<div>Estado: Iniciando...</div>';
+
+                try {
+                    const response = await fetch(assignUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify({
+                            userIds: selectedEmployees.map(item => item.userId),
+                            leaveId: leaveId,
+                            startDate: startDateValue,
+                            endDate: endDateValue,
+                            startTime: startTimeValue || null,
+                            endTime: endTimeValue || null,
+                            reason: reason || null
+                        })
+                    });
+
+                    const result = await response.json();
+                    renderProgress(progressContent, result.progressItems || []);
+
+                    if (!response.ok || !result.success) {
+                        showModalMessage(messageBox, result.message || 'No fue posible procesar la asignación.', false);
+                        saveButton.disabled = false;
+                        return;
+                    }
+
+                    showModalMessage(messageBox, result.message || 'Asignación registrada correctamente.', true);
+                    await loadExceptions();
+                    setTimeout(() => modal.hide(), 700);
+                } catch {
+                    showModalMessage(messageBox, 'No fue posible completar la operación.', false);
+                    saveButton.disabled = false;
+                }
+            });
+        }
+
+        async function openDeleteModal() {
+            if (!focusedEmployeeId) {
+                alert('Debe seleccionar una persona.');
+                return;
+            }
+
+            const checked = Array.from(exceptionsTableBody.querySelectorAll('.exception-checkbox:checked'));
+            if (checked.length === 0) {
+                alert('Debe seleccionar una o varias excepciones para poder borrar.');
+                return;
+            }
+
+            const items = checked.map(item => ({
+                leaveId: Number(item.dataset.leaveId),
+                startDateTime: item.dataset.startDateTime,
+                endDateTime: item.dataset.endDateTime || null
+            }));
+
+            const response = await fetch(confirmDeleteUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': antiForgeryToken
+                },
+                body: JSON.stringify({
+                    userId: focusedEmployeeId,
+                    items: items
+                })
+            });
+
+            const resultText = await response.text();
+            if (!response.ok) {
+                let message = 'No fue posible cargar la confirmación de borrado.';
+                try {
+                    const result = JSON.parse(resultText);
+                    message = result.message || message;
+                } catch { }
+                alert(message);
+                return;
+            }
+
+            modalContainer.innerHTML = resultText;
+            const modalElement = document.getElementById('confirmDeleteExcepcionesModal');
+            const modal = new bootstrap.Modal(modalElement);
+            bindDeleteModalEvents(modal, items);
+            modal.show();
+        }
+
+        function bindDeleteModalEvents(modal, items) {
+            const confirmButton = document.getElementById('confirmDeleteExcepcionesButton');
+            const messageBox = document.getElementById('deleteExcepcionesMessage');
+            const progressBox = document.getElementById('deleteProgressBox');
+            const progressContent = document.getElementById('deleteProgressContent');
+
+            confirmButton.addEventListener('click', async function () {
+                confirmButton.disabled = true;
+                progressBox.classList.remove('d-none');
+                progressContent.innerHTML = '<div>Estado: Iniciando eliminación...</div>';
+
+                try {
+                    const response = await fetch(deleteUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify({
+                            userId: focusedEmployeeId,
+                            items: items
+                        })
+                    });
+
+                    const result = await response.json();
+                    const person = visibleEmployees.find(x => x.userId === focusedEmployeeId);
+
+                    renderProgress(progressContent, [{
+                        position: 1,
+                        total: 1,
+                        userId: focusedEmployeeId,
+                        employeeName: person?.name || '',
+                        badgeNumber: person?.badgeNumber || '',
+                        status: result.success ? 'Completado' : 'Error',
+                        result: result.message || '',
+                        success: result.success
+                    }]);
+
+                    if (!response.ok || !result.success) {
+                        showModalMessage(messageBox, result.message || 'No fue posible eliminar las asignaciones.', false);
+                        confirmButton.disabled = false;
+                        return;
+                    }
+
+                    showModalMessage(messageBox, result.message || 'Asignación(es) eliminada(s) correctamente.', true);
+                    await loadExceptions();
+                    setTimeout(() => modal.hide(), 700);
+                } catch {
+                    showModalMessage(messageBox, 'No fue posible completar la operación.', false);
+                    confirmButton.disabled = false;
+                }
+            });
+        }
+
+        function renderExceptionsMessage(message) {
+            exceptionsTableBody.innerHTML =
+                `<tr><td colspan="9" class="text-center text-muted py-4">` +
+                `${escapeHtml(message || 'Seleccione una persona para consultar sus excepciones.')}</td></tr>`;
+        }
+
+        function syncSelectAllEmployees() {
+            selectAllEmployees.checked =
+                visibleEmployees.length > 0 &&
+                visibleEmployees.every(item => selectedEmployeeIds.has(item.userId));
+        }
+
+        function buildExceptionKey(item) {
+            return `${item.leaveId}|${item.startDateTime}|${item.endDateTime || ''}`;
+        }
+
+        function buildExceptionKeyFromElement(element) {
+            return `${element.dataset.leaveId}|${element.dataset.startDateTime}|${element.dataset.endDateTime || ''}`;
+        }
+
+        function renderProgress(container, progressItems) {
+            if (!progressItems || progressItems.length === 0) {
+                container.innerHTML = '<div>Estado: Sin información de progreso.</div>';
+                return;
+            }
+
+            container.innerHTML = progressItems.map(item => `
+                <div class="border rounded p-2 mb-2">
+                    <div><strong>Persona ${item.position} de ${item.total}</strong></div>
+                    <div>${escapeHtml(item.employeeName || '')} (${escapeHtml(item.badgeNumber || '')})</div>
+                    <div>Estado: ${escapeHtml(item.status || '')}</div>
+                    <div>Resultado: ${escapeHtml(item.result || '')}</div>
+                </div>`).join('');
+        }
+
+        function showModalMessage(messageBox, message, isSuccess) {
+            messageBox.className = isSuccess ? 'alert alert-success' : 'alert alert-danger';
+            messageBox.textContent = message;
+            messageBox.classList.remove('d-none');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+
+            return date.toLocaleString('es-PE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+    })();
+</script>
+}

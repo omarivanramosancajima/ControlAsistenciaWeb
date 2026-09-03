@@ -1,0 +1,59 @@
+@model ControlAsistencia.Web.Models.JustificarEmpleadoDeleteConfirmViewModel
+
+<div class="modal fade" id="confirmDeleteExcepcionesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar eliminación de excepciones</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deleteExcepcionesMessage" class="alert d-none"></div>
+
+                <dl class="row mb-3">
+                    <dt class="col-sm-3">DNI</dt>
+                    <dd class="col-sm-9">@Model.Ssn</dd>
+                    <dt class="col-sm-3">Persona</dt>
+                    <dd class="col-sm-9">@Model.EmployeeName</dd>
+                </dl>
+
+                <p class="mb-2">Se eliminarán las siguientes asignaciones:</p>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Excepción</th>
+                                <th>Fecha de Inicio</th>
+                                <th>Fecha de Fin</th>
+                                <th>Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.LeaveName</td>
+                                    <td>@item.StartDateTime.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@(item.EndDateTime?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty)</td>
+                                    <td>@item.Reason</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border rounded p-3 mt-3 d-none" id="deleteProgressBox">
+                    <h6 class="mb-3">Procesando eliminación</h6>
+                    <div id="deleteProgressContent" class="small text-muted"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteExcepcionesButton">
+                    Sí, eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

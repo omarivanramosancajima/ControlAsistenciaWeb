@@ -1,0 +1,405 @@
+@model ControlAsistencia.Web.Models.PlantillaPersonalIndexViewModel
+
+@{
+    ViewData["Title"] = "Plantilla de Personal";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Plantilla de Personal</h1>
+    </div>
+
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Departamentos / Áreas</h2>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="includeSubDependencies" />
+                        <label class="form-check-label"
+                               for="includeSubDependencies">
+                            Incluir Sub-Dependencias
+                        </label>
+                    </div>
+
+                    <div class="list-group overflow-auto" id="departmentList">
+                        @if (Model.Departments.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">
+                                No existen departamentos registrados.
+                            </div>
+                        }
+                        else
+                        {
+                            foreach (var department in Model.Departments)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action department-selector"
+                                        data-dept-id="@department.DeptId">
+                                    <span class="d-inline-block ps-@Math.Min(department.Level * 2, 5)">
+                                        @department.DeptName
+                                    </span>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="d-flex flex-column gap-3">
+                    <div class="border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">Relación de Personal</h2>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="selectAllEmployees" />
+                            <label class="form-check-label"
+                                   for="selectAllEmployees">
+                                Seleccionar todas las personas
+                            </label>
+                        </div>
+
+                        <div class="table-responsive employee-panel-scroll">
+                            <table class="table table-hover align-middle mb-0"
+                                   id="employeesTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th></th>
+                                        <th>Código</th>
+                                        <th>DNI</th>
+                                        <th>Nombre</th>
+                                        <th>Área</th>
+                                        <th>Foto</th>
+                                        <th>Perfil</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="7"
+                                            class="text-center text-muted py-4">
+                                            Seleccione un departamento o área.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-3">
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                            <h2 class="h6 mb-0">
+                                Área de funcionalidad específica
+                            </h2>
+
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button"
+                                        class="btn btn-primary btn-sm"
+                                        id="addSpecificActionButton">
+                                    Adicionar
+                                </button>
+
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm"
+                                        id="deleteSpecificActionButton">
+                                    Borrar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive assignment-panel-scroll">
+                            <table class="table table-hover align-middle mb-0"
+                                   id="specificItemsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th></th>
+                                        <th>Información específica</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="2"
+                                            class="text-center text-muted py-4">
+                                            Seleccione una persona para trabajar
+                                            con la funcionalidad específica.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        const employeesByDepartmentUrl =
+            '@Url.Action("EmpleadosPorDepartamento", "PlantillaPersonal")';
+
+        const includeSubDependencies =
+            document.getElementById('includeSubDependencies');
+
+        const selectAllEmployees =
+            document.getElementById('selectAllEmployees');
+
+        const employeesTableBody =
+            document.querySelector('#employeesTable tbody');
+
+        const specificItemsTableBody =
+            document.querySelector('#specificItemsTable tbody');
+
+        const addSpecificActionButton =
+            document.getElementById('addSpecificActionButton');
+
+        const deleteSpecificActionButton =
+            document.getElementById('deleteSpecificActionButton');
+
+        let selectedDepartmentId = null;
+        let focusedEmployeeId = null;
+        let selectedEmployeeIds = new Set();
+        let visibleEmployees = [];
+
+        document.querySelectorAll('.department-selector').forEach(button => {
+            button.addEventListener('click', async function () {
+                document.querySelectorAll('.department-selector')
+                    .forEach(item => item.classList.remove('active'));
+
+                this.classList.add('active');
+
+                selectedDepartmentId = Number(this.dataset.deptId);
+                focusedEmployeeId = null;
+
+                renderSpecificArea();
+                await loadEmployees();
+            });
+        });
+
+        includeSubDependencies.addEventListener('change', async function () {
+            if (selectedDepartmentId) {
+                focusedEmployeeId = null;
+                renderSpecificArea();
+                await loadEmployees();
+            }
+        });
+
+        selectAllEmployees.addEventListener('change', function () {
+            if (this.checked) {
+                visibleEmployees.forEach(item =>
+                    selectedEmployeeIds.add(item.userId));
+            } else {
+                visibleEmployees.forEach(item =>
+                    selectedEmployeeIds.delete(item.userId));
+            }
+
+            renderEmployees();
+        });
+
+        addSpecificActionButton.addEventListener('click', function () {
+            if (!focusedEmployeeId) {
+                alert('Debe seleccionar una persona.');
+                return;
+            }
+
+            alert('Funcionalidad específica pendiente de implementar.');
+        });
+
+        deleteSpecificActionButton.addEventListener('click', function () {
+            if (!focusedEmployeeId) {
+                alert('Debe seleccionar una persona.');
+                return;
+            }
+
+            alert('Funcionalidad específica pendiente de implementar.');
+        });
+
+        async function loadEmployees() {
+            if (!selectedDepartmentId) {
+                employeesTableBody.innerHTML =
+                    '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                    'Seleccione un departamento o área.</td></tr>';
+                return;
+            }
+
+            employeesTableBody.innerHTML =
+                '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                'Cargando personas...</td></tr>';
+
+            const response = await fetch(
+                `${employeesByDepartmentUrl}?deptId=${selectedDepartmentId}` +
+                `&includeSubDependencies=${includeSubDependencies.checked}`,
+                {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                employeesTableBody.innerHTML =
+                    `<tr><td colspan="7" class="text-center text-danger py-4">` +
+                    `${escapeHtml(result.message || 'No fue posible cargar las personas.')}` +
+                    '</td></tr>';
+
+                visibleEmployees = [];
+                syncSelectAllEmployees();
+                return;
+            }
+
+            visibleEmployees = result.items || [];
+
+            selectedEmployeeIds = new Set(
+                Array.from(selectedEmployeeIds)
+                    .filter(id => visibleEmployees.some(item => item.userId === id))
+            );
+
+            if (visibleEmployees.length === 0) {
+                focusedEmployeeId = null;
+                renderEmployees();
+                renderSpecificArea();
+                return;
+            }
+
+            focusedEmployeeId = visibleEmployees.some(
+                item => item.userId === focusedEmployeeId)
+                ? focusedEmployeeId
+                : visibleEmployees[0].userId;
+
+            renderEmployees();
+            renderSpecificArea();
+        }
+
+        function renderEmployees() {
+            if (visibleEmployees.length === 0) {
+                employeesTableBody.innerHTML =
+                    '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                    'No hay personas asignadas a este departamento.</td></tr>';
+
+                syncSelectAllEmployees();
+                return;
+            }
+
+            employeesTableBody.innerHTML = visibleEmployees.map(item => {
+                const isFocused = item.userId === focusedEmployeeId;
+                const isChecked = selectedEmployeeIds.has(item.userId);
+
+                const photoContent = item.photoBase64
+                    ? `<img src="${item.photoBase64}" alt="Foto" ` +
+                      `class="img-thumbnail employee-photo-thumb" />`
+                    : '<div class="border rounded d-inline-flex ' +
+                      'align-items-center justify-content-center bg-light ' +
+                      'text-muted employee-photo-thumb">N/D</div>';
+
+                return `
+                    <tr class="employee-row ${isFocused ? 'table-primary' : ''}"
+                        data-user-id="${item.userId}">
+                        <td>
+                            <input type="checkbox"
+                                   class="form-check-input employee-checkbox"
+                                   data-user-id="${item.userId}"
+                                   ${isChecked ? 'checked' : ''} />
+                        </td>
+                        <td>${escapeHtml(item.badgeNumber || '')}</td>
+                        <td>${escapeHtml(item.ssn || '')}</td>
+                        <td>${escapeHtml(item.name || '')}</td>
+                        <td>${escapeHtml(item.departmentName || '')}</td>
+                        <td>${photoContent}</td>
+                        <td>${escapeHtml(item.privilegeDescription || 'Desconocido')}</td>
+                    </tr>`;
+            }).join('');
+
+            employeesTableBody.querySelectorAll('.employee-row')
+                .forEach(row => {
+                    row.addEventListener('click', function (event) {
+                        if (event.target.closest('.employee-checkbox')) {
+                            return;
+                        }
+
+                        focusedEmployeeId =
+                            Number(this.dataset.userId);
+
+                        renderEmployees();
+                        renderSpecificArea();
+                    });
+                });
+
+            employeesTableBody.querySelectorAll('.employee-checkbox')
+                .forEach(checkbox => {
+                    checkbox.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                    });
+
+                    checkbox.addEventListener('change', function () {
+                        const userId =
+                            Number(this.dataset.userId);
+
+                        if (this.checked) {
+                            selectedEmployeeIds.add(userId);
+                        } else {
+                            selectedEmployeeIds.delete(userId);
+                        }
+
+                        syncSelectAllEmployees();
+                    });
+                });
+
+            syncSelectAllEmployees();
+        }
+
+        function renderSpecificArea() {
+            if (!focusedEmployeeId) {
+                specificItemsTableBody.innerHTML =
+                    '<tr><td colspan="2" class="text-center text-muted py-4">' +
+                    'Seleccione una persona para trabajar con la funcionalidad específica.' +
+                    '</td></tr>';
+                return;
+            }
+
+            specificItemsTableBody.innerHTML =
+                '<tr><td colspan="2" class="text-center text-muted py-4">' +
+                'La funcionalidad específica para la persona seleccionada ' +
+                'se implementará aquí.</td></tr>';
+        }
+
+        function syncSelectAllEmployees() {
+            selectAllEmployees.checked =
+                visibleEmployees.length > 0 &&
+                visibleEmployees.every(item =>
+                    selectedEmployeeIds.has(item.userId));
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+    })();
+</script>
+}

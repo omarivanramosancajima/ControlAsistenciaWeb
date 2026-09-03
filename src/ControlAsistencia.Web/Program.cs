@@ -33,6 +33,9 @@ builder.Services.AddScoped<IAttendanceExceptionProvider, AttendanceExceptionProv
 builder.Services.AddScoped<IAttendanceCalculationContextBuilder, AttendanceCalculationContextBuilder>();
 builder.Services.AddScoped<IAttendanceCalculationEngine, AttendanceCalculationEngine>();
 builder.Services.AddScoped<IAttendanceReportService, AttendanceReportService>();
+builder.Services.AddScoped<IJustificarEmpleadoRepository, JustificarEmpleadoRepository>();
+builder.Services.AddScoped<IPlantillaPersonalRepository, PlantillaPersonalRepository>();
+
 
 var app = builder.Build();
 

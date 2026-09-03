@@ -234,7 +234,7 @@ public class ReporteDeAsistenciaController : Controller
                             table.ColumnsDefinition(columns =>
                             {
                                 columns.ConstantColumn(52);
-                                columns.ConstantColumn(88);
+                                columns.ConstantColumn(120);
                                 columns.ConstantColumn(37);
                                 columns.ConstantColumn(37);
                                 columns.ConstantColumn(36);

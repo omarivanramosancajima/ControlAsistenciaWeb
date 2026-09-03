@@ -110,6 +110,18 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9yYXJpb3NcX0Zvcm0uY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/JustificarEmpleado/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSnVzdGlmaWNhckVtcGxlYWRvXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/JustificarEmpleado/_ConfirmDeleteExcepcionesModal.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSnVzdGlmaWNhckVtcGxlYWRvXF9Db25maXJtRGVsZXRlRXhjZXBjaW9uZXNNb2RhbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/PlantillaPersonal/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUGxhbnRpbGxhUGVyc29uYWxcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/ProgramarTurno/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZ3JhbWFyVHVybm9cSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
