@@ -1,0 +1,75 @@
+@model ControlAsistencia.Web.Models.EmpresaFormViewModel
+@{
+    ViewData["Title"] = "Nueva empresa";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Nueva empresa</h1>
+    </div>
+    <div class="card-body">
+        <form asp-action="Crear" method="post" id="empresaForm">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="TaxId" class="form-label"></label>
+                    <span class="text-danger">*</span>
+                    <input asp-for="TaxId" class="form-control" maxlength="11" inputmode="numeric" />
+                    <span asp-validation-for="TaxId" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="DeptName" class="form-label"></label>
+                    <span class="text-danger">*</span>
+                    <input asp-for="DeptName" class="form-control" maxlength="30" />
+                    <span asp-validation-for="DeptName" class="text-danger"></span>
+                </div>
+                <div class="col-md-12 mb-3">
+                    <label asp-for="Descrip" class="form-label"></label>
+                    <span class="text-danger">*</span>
+                    <input asp-for="Descrip" class="form-control" maxlength="100" />
+                    <span asp-validation-for="Descrip" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Tel" class="form-label"></label>
+                    <input asp-for="Tel" class="form-control" maxlength="15" />
+                    <span asp-validation-for="Tel" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Movil" class="form-label"></label>
+                    <input asp-for="Movil" class="form-control" maxlength="15" />
+                    <span asp-validation-for="Movil" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Email" class="form-label"></label>
+                    <span class="text-danger">*</span>
+                    <input asp-for="Email" type="email" class="form-control" maxlength="30" />
+                    <span asp-validation-for="Email" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Direc" class="form-label"></label>
+                    <input asp-for="Direc" class="form-control" maxlength="150" />
+                    <span asp-validation-for="Direc" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="mt-2">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        document.getElementById('empresaForm').addEventListener('submit', function (event) {
+            if (!this.checkValidity()) return;
+            if (!window.confirm('¿Está seguro que desea crear la empresa?')) {
+                event.preventDefault();
+            }
+        });
+    </script>
+}
