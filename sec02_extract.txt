@@ -1,0 +1,328 @@
+
+ASISTWEB — LÓGICA DEL MOTOR DE ASISTENCIA
+Especificación funcional actual: humana v01.04 
+Punto: Auditoría del código posterior a MEGAPROMPT 07
+Fecha Revisiones: 
+21.08.2026 (versión implantada en motor de asistencia)
+25.08.2026 – 29.08.2026 (revisión humana)
+29.08.2026 (revisión chatgtp 4 veces)
+29.08.2026 (revisión humana 4 veces)
+Estado: armando propuesta definitiva para revisión del programador antes de generar el MegaPrompt de corrección.
+
+Decisión ejecutiva
+La arquitectura es aprovechable, pero el núcleo de cálculo debe ser refactorizado con una corrección controlada del motor de cálculos de conceptos de asistencia (motor de asistencia) con este documento. 
+Obtención de lista de días a procesar  clasificación del día  resolución del turno  selección de marcas  cálculo de permanencia  cálculo de horas efectivas  tardanza/salida temprana  horas extra  excepciones. Los reportes seguirán consumiendo AttendanceDayResult.
+LOGICA DE NEGOCIO DEL MOTOR
+Sec. 00.- Para cada persona: obtener DNI desde USERINFO.SSN; obtener código interno de persona desde USERINFO.BADGENUMBER; obtener nombre desde USERINFO.NAME; obtener área inmediata desde USERINFO.DEFAULTDEPTID → DEPARTMENTS.DEPTID, usando DEPARTMENTS.DEPTNAME como nombre y DEPTID como código de área. Para empresa, subir por SUPDEPTID desde el departamento de la persona hasta el departamento de primer nivel (SUPDEPTID=0 e InheritParentSch IS NULL) que corresponda a COMPANY.DEPTID; desde COMPANY obtener SCIA_TAXID como RUC y SCIA_DESCRIP como razón social. Si no existe coincidencia, no inventar datos y registrar diagnóstico.
+CAMBIO PROPUESTO 14 — PRECISAR CADENA DE IDENTIFICACIÓN: USERINFO.DEFAULTDEPTID identifica el área inmediata. Para obtener empresa, recorrer DEPARTMENTS mediante SUPDEPTID hasta encontrar el departamento de primer nivel con SUPDEPTID=0 e InheritParentSch IS NULL y luego buscar COMPANY.DEPTID igual a ese DEPTID. Si no se encuentra la empresa, RUC y razón social quedan vacíos y se registra diagnóstico; nunca utilizar una empresa de otra persona/departamento  *APROBADO* 
+Sec. 01.- Para cada persona seleccionada, en el filtro de la pantalla, para procesar su cálculo de conceptos de asistencia, el sistema debe obtener la lista de solo los días calendario indicados en el filtro, si piden desde el dia 01.08 al 31.08, obtendrá una lista de 31 días, si piden del 05.08 al 20.08 obtendrá una lista de16 días, si piden desde el 25.08 hasta el 05.09 obtendrá una lista de 12 días, si piden del 05.08 al 25.09 obtendrá una lista de 52 días.
+El filtro en pantalla deberá poder seleccionar como máximo 62 días calendario (implementar validación donde corresponda).
+Y la selección de días debe contemplar días entre meses, incluso si el año es bisiesto, en caso el mes de febrero de un año termine en 29 días y otros en 28.
+La lista se deberá reflejar en AttendanceDayResult para cada persona actualmente procesando y el rango de fechas solicitado, indicando el número de día, nombre de día de semana del día y la fecha del día, ejemplo: 
+“01”,”Lunes”,“03/03/2025”….
+“02”,”Martes”,“04/03/2025”…..
+“03”,”Miercoles”,“05/03/2025”….
+Obtenido la lista de días calendario a procesar para una persona determinada, el sistema debe validar por cada día calendario lo siguiente:
+Sec. 01.01.- Valido si el día es feriado, esto se determina buscando la fecha de este día, en tabla de feriados (HOLIDAYS) comparando con  la columna STARTTIME, de tener coincidencias exactas entonces ES_FERIADO=true, sino es ES_FERIADO=false.
+Sec. 01.02.- Valido si el día es fin de semana en el sistema, si al comparar correctamente el parámetro weekends de la tabla AttParam, con el nombre de semana del día calendario actualmente procesando y resulta que es fin de semana, entonces ES_FIN_DE_SEMANA=true, sino ES_FIN_DE_SEMANA=false.
+La validación se determina obteniendo del día calendario actualmente revisando su nombre de día de semana (domingo, lunes … sábado), a cada nombre se le asigna los siguientes valores : domingo=1, lunes=2, martes=3, miércoles=4, jueves=5, viernes=6 y sábado=7 (estos valores solo son válidos para parámetro weekends para la lógica de fin de semana y nada más) y luego se compara con el parámetro weekends de la tabla AttParam, para lo cual se debe obtener el valor de dicho parámetro que podría ser una cadena separado por comas, que al convertirlo a un arreglo (usando el separador por comas), se debe validar si alguno de los elementos del arreglo coincida con el valor del nombre del día de semana previamente obtenido, así por ejemplo si el valor de weekends es “9,1,7”, el arreglo seria 9,1,7 donde 1 y 7, son días configurados como fin de semana, es decir el sábado y el domingo, si el valor de weekends es “9,1”, entonces el fin de semana seria el domingo (domingo=1) y si valor de weekends es “9” o “9,” o “” no habría fin de semana configurado en el sistema, incluso weekends podría tener “9,2,5” y se debe usar el patrón anteriormente expuesto. Obteniendo los valores de los nombres de los días de fin de semana configurados en el sistema, se proceden a comparar con el nombre del día actualmente revisando y si coincide con alguno entonces sale que ES_FIN_DE_SEMANA=true sino ES_FIN_DE_SEMANA=false.
+Sec. 01.03.- Valido si el día tiene permisos/justificaciones (excepciones), esto se determina buscando si la fecha de este día obtiene concordancias en la tabla de asignación de excepciones (USER_SPEDAY) comparando que la fecha de este día este dentro del rango de fechas de los campos USER_SPEDAY. STARTSPECDAY y USER_SPEDAY. ENDSPECDAY, para la persona actualmente procesando: USER_SPEDAY.USERID, en caso de obtener uno o varias registros de excepción, se debe obtener toda la lista de excepciones asignadas a esta persona para este día (LISTA_DE_EXCEPCIONES_DEL_DIA), a partir de una consulta de base de datos compuesta entre la tabla USER_SPEDAY: campos: USERID, STARTSPECDAY, ENDSPECDAY y DATEID, y la tabla LeaveClass campos: LeaveId, LeaveName, MinUnit, Unit y Classify, donde la relación entre ambas tablas es:   USER_SPEDAY.DATEID  --&gt;  LeaveClass.LeaveId), de tener coincidencias entonces TIENE_EXCEPCIONES=true, sino es TIENE_EXCEPCIONES =false.
+Sec. 01.04.- Que el día calendario actualmente en revisión tenga una asignación de turno y horario, para lo cual: 
+1ero se compara el “número de día de semana” que le corresponde al día actual, por ej: si la fecha del día actual es 04/03/2025 entonces ese día es martes, por tanto corresponde el nro_dia=2, otro ej: si la fecha es 28./03/2025, ese día es viernes, nro_dia=5 y asi, entonces para: lunes=1, martes=2, miércoles=3, jueves=4, viernes=5, sábado=6 y domingo=7. 
+Luego para determinar si se tiene turno y horario asignado para el día y la persona solicitados, se busca en una consulta compuesta entre la tabla de asignación de turnos (USER_OF_RUN), la tabla programación de turnos (NUM_RUN_DEIL) y la tabla de horarios (SchClass), cuya relaciones son: USER_OF_RUN. NUM_OF_RUN_ID   NUM_RUN_DEIL.NUM_RUNID y NUM_RUN_DEIL.SCHCLASSID  SchClass.schClassid.En donde se debe de buscar comparando: la persona actualmente procesando (USER_OF_RUN.USERID), para el día actual (nro_dia= NUM_RUN_DEIL.SDAYS) y que la fecha del día actual se encuentre dentro del rango de fechas de los campos USER_OF_RUN.STARTDATE y USER_OF_RUN.ENDDATE se obtengan resultados, si se obtiene más de un resultado o varios registros, solo se debe tomar el primero, ordenando previamente el resultado por el campo NUM_OF_RUN_ID para tomar el primero, del único registro obtenido tomar el valor de la columna NUM_OF_RUN_ID  (identificador de turno con el que se trabajará) y usar una variable TURNO_HORARIO_ASIGNADO=true si se obtiene resultados, de no entonces TURNO_HORARIO_ASIGNADO=false. 
+Sec. 02.- Si no tiene asignación de turno y horario (TURNO_HORARIO_ASIGNADO=false), verificar si hay marcas de asistencia para ese día calendario:
+Si no tiene marcas, el día se descarta, eliminando dicho día de la lista de días calendario original, pasando a revisar el siguiente día.
+Si tiene marcas y ES_FERIADO=true pero ShowHoliday = 0, entonces el día se descarta, eliminando dicho día de la lista de días calendario original, pasando a revisar el siguiente día.
+Si tiene marcas y ES_FERIADO=false y ES_FIN_DE_SEMANA=true pero Showweekends = 0, entonces el día se descarta, eliminando dicho día de la lista de días calendario original, pasando a revisar el siguiente día.
+Si tiene marcas  y ES_FERIADO=false y ES_FIN_DE_SEMANA=false pero ShowNoTurn = 0, entonces el día se descarta, eliminando dicho día de la lista de días calendario original, pasando a revisar el siguiente día.
+Si el flujo paso satisfactoriamente las 4 validaciones anteriores y tiene marcas, entonces se procesa el día, de la siguiente forma:
+Sec. 02.01.- Si ese día solo se tiene una sola marca (MARCA_MINIMA), se verifica si al día siguiente existe al menos una marca con CHECKTYPE=L
+Sec. 02.01.01.- Si el día siguiente NO tiene ninguna marca con CHECKTYPE=L:
+Solo se debe mostrar la única marca en la columna Entrada de AttendanceDayResult.
+No existirá cálculo de horas efectivas, ni cálculo de horas de permanencia, ni cálculo de tardanza, ni cálculo de salida temprana, ni cálculo de horas extras, a guardar en AttendanceDayResult, por más que AllowNoTurnOT = 1 y que LimitNoTurnOT = tenga cualquier valor o AllowHolidayOT = 1 y que LimitHolidayOT = tenga cualquier valor ó WeekenFullDayOT = 1.
+Si el día ES_FERIADO=true, se debe colocar en colunma Horario de AttendanceDayResult el valor “FERIADO”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__” y se agrega el día al acumulado de DIAS FERIADOS SIN TURNO para la persona y filtro de fechas solicitado.
+Finalmente se agrega el día al ACUMULADO de DIAS DE ASISTENCIA para la persona y filtro de fechas solicitado y se continúa con el siguiente día calendario a procesar..
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=true se debe colocar en colunma Horario de AttendanceDayResult el valor “FIN DE SEMANA”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=false y ShowNoTurn = 1 se debe colocar en colunma Horario de AttendanceDayResult el valor “SIN TURNO”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”.
+En caso de existir permisos/justificaciones para este día, TIENE_EXCEPCIONES=true, entonces se muestra en columna Excepcion de AttendanceDayResult, los nombres de excepciones existentes en LISTA_DE_EXCEPCIONES_DEL_DIA, dando prioridad a las que tienen Classify=128 para lo cual se debe realizar una sub-ordenación por: Unit, Classify, LeaveId y luego concatenar sus nombres, ej: “Compensacion Hras, Comisión Extraordinaria”. En este caso no repercute en ningún cálculo ni concepto de asistencia. 
+Si LISTA_DE_EXCEPCIONES_DEL_DIA tiene al menos una excepción con Unit=3 (por día) entonces; si se agrega el día al acumulado de DIAS JUSTIFICADOS (para los casos de Unit=1 o 2 no se agrega a ningún acumulado). *APROBADO*
+pero si se agrega el día al acumulado de DIAS JUSTIFICADOS, solo si la excepción tiene Unit=3, para la persona y filtro de fechas solicitado (para los casos de Unit=1 o 2 no se agrega a ningún acumulado).
+Se agrega el día al ACUMULADO DE DIAS SIN TURNO para la persona y filtro de fechas solicitado.
+Finalmente se agrega el día al ACUMULADO de DIAS DE ASISTENCIA para la persona y filtro de fechas solicitado y se continúa con el siguiente día calendario a procesar.  
+Sec. 02.01.02.- Si el día siguiente SI tiene al menos una marca con CHECKTYPE=L: 
+Se obtiene la marca máxima con CHECKTYPE=L del día siguiente (MARCA_MAXIMA).
+Se calcula el TIEMPO_DE_TRABAJO en formato “HH:mm” (formato 24 horas y minutos), restando el tiempo entre la marca máxima menos la marca mínima ([MARCA_MAXIMA+24 HORAS]  - MARCA_MINIMA)
+En caso de que el resultando calculado en TIEMPO_DE_TRABAJO  sobrepase las 24 horas, se debe mostrar el valor coherente en horas y minutos, ejemplo: “28:15” se leería como 28 horas y 15 minutos.
+Se debe mostrar la MARCA_MINIMA en la columna Entrada, y la MARCA_MAXIMA en la columna Salida de AttendanceDayResult.
+El cálculo de horas efectivas y de horas de permanencia a guardar en AttendanceDayResult, será el mismo calculado en TIEMPO_DE_TRABAJO.
+No existirá cálculo de tardanza, ni cálculo de salida temprana a guardar en AttendanceDayResult.
+El cálculo en horas extras a guardar en AttendanceDayResult, dependerá de:  
+Si el día ES_FERIADO=true 
+Y AllowHolidayOT = 0 y LimitHolidayOT = cualquier valor, entonces horas extras tiene el valor de “”.
+Y AllowHolidayOT = 1 y LimitHolidayOT = 0, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO.
+Y AllowHolidayOT = 1 y LimitHolidayOT = mayor a 0, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO siempre que este sea menor o igual que LimitHolidayOT, para lo cual TIEMPO_DE_TRABAJO debe convertirse a minutos y compararse con LimitHolidayOT (valor entero en minutos). Si TIEMPO_DE_TRABAJO (convertido en minutos) es mayor a LimitHolidayOT, debe colocarse el valor de LimitHolidayOT en formato 24 horas (HH:mm), Nunca sobrepasará las 24 horas.
+Si el día ES_FERIADO=false
+y ES_FIN_DE_SEMANA=true 
+si WeekenFullDayOT = 0, entonces horas extras tiene el valor de “”.
+si WeekenFullDayOT = 1, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO en formato 24 horas (HH:mm), Nunca sobre pasará las 24, Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*..
+y ES_FIN_DE_SEMANA=false
+si AllowNoTurnOT = 0 y LimitNoTurnOT = cualquier valor, entonces horas extras tiene el valor de “”.
+si AllowNoTurnOT = 1 y LimitNoTurnOT = 0, entonces horas extras tiene el valor calculado en TIEMPO_DE_TRABAJO. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+si AllowNoTurnOT = 1 y LimitNoTurnOT = mayor a 0, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO siempre que este sea menor o igual que LimitNoTurnOT, para lo cual TIEMPO_DE_TRABAJO debe convertirse a minutos y compararse con LimitNoTurnOT (valor entero en minutos). Si TIEMPO_DE_TRABAJO (convertido en minutos) es mayor a LimitNoTurnOT, debe colocarse el valor de LimitNoTurnOT en formato 24 horas (HH:mm), Nunca sobre pasará las 24 horas. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Si el día ES_FERIADO=true, se debe colocar en colunma Horario de AttendanceDayResult el valor “FERIADO”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”, y además agrega el día al acumulado de DIAS FERIADOS SIN TURNO para la persona y filtro de fechas solicitado.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=true se debe colocar en colunma Horario de AttendanceDayResult el valor “FIN DE SEMANA”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=false y ShowNoTurn = 1 se debe colocar en colunma Horario de AttendanceDayResult el valor “SIN TURNO”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”.
+En caso de existir permisos/justificaciones para este día, TIENE_EXCEPCIONES=true, entonces se guarda en columna Excepcion de AttendanceDayResult, los nombres de excepciones existentes en LISTA_DE_EXCEPCIONES_DEL_DIA, dando prioridad a las que tienen Classify=128 para lo cual se debe realizar una sub-ordenación por: Unit, Classify, LeaveId y luego concatenar sus nombres, ej: “Compensacion Hras, Comisión Extraordinaria”. En este caso no repercute en ningún cálculo de ningún concepto de asistencia. 
+Si LISTA_DE_EXCEPCIONES_DEL_DIA tiene al menos una excepción con Unit=3 (por día) entonces; si se agrega el día al acumulado de DIAS JUSTIFICADOS. 
+Si no hay en LISTA_DE_EXCEPCIONES_DEL_DIA  excepción con Unit=3 pero si con Unit=1 o 2 entonces se agrega al acumulado de HORAS JUSTIFICADAS, usando el tiempo especificado por las excepciones,  Si existen varias excepciones, sumar únicamente los minutos únicos de sus intervalos, sin duplicar solapamientos, en formato 24 horas (HH:mm) *APROBADO*. 
+Se agrega el día al acumulado de DIAS SIN TURNO para la persona y filtro de fechas solicitado.
+Si existen varias excepciones Unit=1/2 que se superponen temporalmente, calcular la duración justificada sobre intervalos de tiempo sin duplicar minutos. El acumulado de HORAS JUSTIFICADAS debe representar minutos únicos justificados, no la suma de intervalos solapados repetidos  *APROBADO*.
+Se agrega el día al ACUMULADO DE DIAS SIN TURNO para la persona y filtro de fechas solicitado.
+Todas las marcas del día que no se usaron como MARCA_MINIMA, ni MARCA_MAXIMA deben de solo mostrarse separadas por comas, ej: “08:13, 13:01, 14:16” en  columna marcas intermedias de AttendanceDayResult  y NO INTERNVIENE EN NINGUN CALCULO DE CONCEPTOS DE ASISTENCIA.
+Finalmente se agrega el día al acumulado de DIAS DE ASISTENCIA para la persona y filtro de fechas solicitado y se continúa con el siguiente día calendario a procesar.   
+Sec. 02.02.- Si este día tiene más de una marca, se calcula de la siguiente forma:
+Se obtiene la marca mínima (MARCA_MINIMA) y la marca máxima del día actual (MARCA_MAXIMA).
+Se calcula el TIEMPO_DE_TRABAJO en formato “HH:mm” (formato 24 horas y minutos), restando el tiempo entre la marca máxima menos la marca mínima (MARCA_MAXIMA - MARCA_MINIMA), el tiempo calculado en TIEMPO_DE_TRABAJO  nunca sobrepasará las 24 horas. 
+Se debe mostrar la MARCA_MINIMA en la columna Entrada, y la MARCA_MAXIMA en la columna Salida de AttendanceDayResult.
+El cálculo de horas efectivas y de horas de permanencia a guardar en AttendanceDayResult, será el mismo calculado en TIEMPO_DE_TRABAJO.
+No existirá cálculo de tardanza, ni cálculo de salida temprana a guardar en AttendanceDayResult.
+El cálculo en horas extras a guardar en AttendanceDayResult, dependerá de:  
+Si el día ES_FERIADO=true 
+Y AllowHolidayOT = 0 y LimitHolidayOT = cualquier valor, entonces horas extras tiene el valor de “”.
+Y AllowHolidayOT = 1 y LimitHolidayOT = 0, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Y AllowHolidayOT = 1 y LimitHolidayOT = mayor a 0, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO siempre que este sea menor o igual que LimitHolidayOT, para lo cual TIEMPO_DE_TRABAJO debe convertirse a minutos y compararse con LimitHolidayOT (valor entero en minutos). Si TIEMPO_DE_TRABAJO (convertido en minutos) es mayor a LimitHolidayOT, debe colocarse el valor de LimitHolidayOT en formato 24 horas (HH:mm), Nunca sobrepasará las 24 horas. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Si el día ES_FERIADO=false
+y ES_FIN_DE_SEMANA=true 
+si WeekenFullDayOT = 0, entonces horas extras tiene el valor de “”.
+si WeekenFullDayOT = 1, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO en formato 24 horas (HH:mm), Nunca sobre pasará las 24, Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*..
+y ES_FIN_DE_SEMANA=false
+si AllowNoTurnOT = 0 y LimitNoTurnOT = cualquier valor, entonces horas extras tiene el valor de “”.
+si AllowNoTurnOT = 1 y LimitNoTurnOT = 0, entonces horas extras tiene el valor calculado en TIEMPO_DE_TRABAJO. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+si AllowNoTurnOT = 1 y LimitNoTurnOT = mayor a 0, entonces horas extras tiene el valor calculado de TIEMPO_DE_TRABAJO siempre que este sea menor o igual que LimitNoTurnOT, para lo cual TIEMPO_DE_TRABAJO debe convertirse a minutos y compararse con LimitNoTurnOT (valor entero en minutos). Si TIEMPO_DE_TRABAJO (convertido en minutos) es mayor a LimitNoTurnOT, debe colocarse el valor de LimitNoTurnOT en formato 24 horas (HH:mm), Nunca sobre pasará las 24 horas. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Si el día ES_FERIADO=true, se debe colocar en colunma Horario de AttendanceDayResult el valor “FERIADO”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__” y además agrega el día al acumulado de DIAS FERIADOS SIN TURNO para la persona y filtro de fechas solicitado.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=true se debe colocar en colunma Horario de AttendanceDayResult el valor “FIN DE SEMANA”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=false y ShowNoTurn = 1 se debe colocar en colunma Horario de AttendanceDayResult el valor “SIN TURNO”, y en horas programadas de inicio y fin de horario el valor “__:__ - __:__”.
+En caso de existir permisos/justificaciones para este día, TIENE_EXCEPCIONES=true, entonces se guarda en columna Excepcion de AttendanceDayResult, los nombres de excepciones existentes en LISTA_DE_EXCEPCIONES_DEL_DIA, dando prioridad a las que tienen Classify=128 para lo cual se debe realizar una sub-ordenación por: Unit, Classify, LeaveId y luego concatenar sus nombres, ej: “Compensacion Hras, Comisión Extraordinaria”. En este caso no repercute en ningún cálculo de ningún concepto de asistencia. 
+Si LISTA_DE_EXCEPCIONES_DEL_DIA tiene al menos una excepción con Unit=3 (por día) entonces; si se agrega el día al acumulado de DIAS JUSTIFICADOS. 
+Si no hay en LISTA_DE_EXCEPCIONES_DEL_DIA  excepción con Unit=3 pero si con Unit=1 o 2 entonces se agrega al acumulado de HORAS JUSTIFICADAS, usando el tiempo especificado por las excepciones,  Si existen varias excepciones, sumar únicamente los minutos únicos de sus intervalos, sin duplicar solapamientos, en formato 24 horas (HH:mm) *APROBADO*. 
+Se agrega el día al acumulado de DIAS SIN TURNO para la persona y filtro de fechas solicitado.
+Todas las marcas del día que no se usaron como MARCA_MINIMA, ni MARCA_MAXIMA deben de solo mostrarse separadas por comas, ej: “08:13, 13:01, 14:16” en  columna marcas intermedias de AttendanceDayResult  y NO INTERNVIENE EN NINGUN CALCULO DE CONCEPTOS DE ASISTENCIA.
+Después de determinar los valores finales del día SIN TURNO, agregar TIEMPO_DE_TRABAJO tanto al ACUMULADO DE HORAS EFECTIVAS como al ACUMULADO DE HORAS DE PERMANENCIA. *APROBADO*
+Finalmente se agrega el día al acumulado de DIAS DE ASISTENCIA para la persona y filtro de fechas solicitado y se continúa con el siguiente día calendario a procesar.
+Sec. 03.- Si tiene asignación de turno y horario (TURNO_HORARIO_ASIGNADO=true), verificar si hay marcas de asistencia para ese día calendario:
+Si tiene marcas y ES_FERIADO=true pero ShowHoliday = 0, entonces el día se descarta, eliminando dicho día de la lista de días calendario original, pasando a revisar el siguiente día.
+Si tiene marcas y ES_FERIADO=false y ES_FIN_DE_SEMANA=true pero Showweekends =0,  entonces el día se descarta, eliminando dicho día de la lista de días calendario original, pasando a revisar el siguiente día.
+Nota: Showweekends es un parámetro independiente de AttParam. Si Showweekends=0, el día de fin de semana con turno y con marcas NO se incorpora a AttendanceDayResult ni a los acumulados derivados de ese día. Si Showweekends=1, continúa el procesamiento normal. No sustituir Showweekends por WeekenFullDayOT. *APROBADO*
+El día se agrega al ACUMULADO DE DIAS PROGRAMADOS CON TURNO inmediatamente después de confirmar que existe una asignación válida de turno Y un DETALLE_TURNO_HORARIO_ASIGNADO válido para el día. Este acumulado se realiza antes de cualquier descarte posterior por ShowHoliday o Showweekends. Cada día calendario con turno y horario válido cuenta una sola vez como día programado*APROBADO*.
+Si el flujo paso satisfactoriamente las 2 validaciones anteriores, entonces se procesa el día, de la siguiente forma:
+Sec. 03.01.- Previamente se obtiene el detalle del turno y horario asignado (DETALLE_TURNO_HORARIO_ASIGNADO) para este día, utilizando: la tabla de detalle de programación de turno: NUM_RUN_DEIL, la tabla de horario: SCHCLASS, el valor de NUM_OF_RUN_ID previamente obtenido y el “número de día de semana” (nro_dia): 
+Se compara el valor de NUM_OF_RUN_ID con el campo: NUM_RUN_DEIL.NUM_RUNID (identificador de turno) 
+Además se compara el “número de día de semana” que le corresponde al día actual, por ej: si la fecha del día actual es 04/03/2025 entonces ese día es martes, por tanto corresponde el nro_dia=2, otro ej: si la fecha es 28./03/2025, ese día es viernes, nro_dia=5 y asi, entonces nro_dia se compara contra el campo: NUM_RUN_DEIL.SDAYS,
+Al usar ambos valores de NUM_OF_RUN_ID y nro_dia contra los campos indicados previamente, se obtendrá UN SOLO REGISTRO de base de datos a partir de una consulta compuesta de las tablas: NUM_RUN_DEIL y SCHCLASS, por tanto el DETALLE_TURNO_HORARIO_ASIGNADO deberá tener los campos: NUM_RUNID, SDAYS, EDAYS Y SCHCLASSID de la tabla NUM_RUN_DEIL y los campos SCHNAME, STARTTIME, ENDTIME, LATEMINUTES, EARLYMINUTES, CHECKIN, CHECKOUT, CHECKINTIME1, CHECKINTIME2, CHECKOUTTIME1 Y CHECKOUTTIME2 de la tabla SCHCLASS, donde la relación entre ambas tablas es: NUM_RUN_DEIL.SCHCLASSID  SCHCLASS. SCHCLASSID.
+Adicionalmente a DETALLE_TURNO_HORARIO_ASIGNADO, se agregará una columna REFRIGERIO, cuyo valor se obtendrá de la siguiente forma:
+Si columna SCHNAME de DETALLE_TURNO_HORARIO_ASIGNADO empieza con “HV”, la columna REFRIGERIO almacenara el valor 45, de 45 minutos.
+Si columna SCHNAME de DETALLE_TURNO_HORARIO_ASIGNADO empieza con “HR”, la columna REFRIGERIO almacenara el valor 60, de 60 minutos.
+Si columna SCHNAME de DETALLE_TURNO_HORARIO_ASIGNADO empieza con “HN”, la columna REFRIGERIO almacenara el valor 90, de 90 minutos.
+Si columna SCHNAME de DETALLE_TURNO_HORARIO_ASIGNADO empieza con “HS” o cualquier otro valor, la columna REFRIGERIO almacenara el valor 0, de 0 minutos.
+Se agrega a Columna Horario Asignado de AttendanceDayResult el valor de SCHNAME unido a los campos STARTTIME Y ENDTIME, ej: “HR04 09:00 - 18:00”. 
+Se reitera que DETALLE_TURNO_HORARIO_ASIGNADO tendrá un solo registro con los campos previamente descrito.   
+Sec. 03.02.- Y además se debe determinar si el DETALLE_TURNO_HORARIO_ASIGNADO es trabajo de amanecida (TURNO_DE_AMANECIDA =true o false), para ello se debe evaluar los campos SDAYS y EDAYS de DETALLE_TURNO_HORARIO_ASIGNADO, si EDAYS es diferente que SDAYS y EDAYS no es NULL  (ej: 1 y 2, 2 y 3, 3 y 4, 4 y 5, 7 y 1…) entonces TURNO_DE_AMANECIDA =true, en cambio si SDAYS y EDAYS son iguales  (ej: 1 y 1, 2 y 2, 3 y 3, 4 y 4…) entonces TURNO_DE_AMANECIDA =false. 
+Sec. 03.03.- determinar los valores de trabajo interno para INICIO_DE_HORARIO y FIN_DE_HORARIO, para lo cual trabajará con los campos de DETALLE_TURNO_HORARIO_ASIGNADO procediendo de la siguiente forma: 
+Si día tiene TURNO_DE_AMANECIDA=falso, entonces:
+Para definir la hora de entrada, se debe obtener las horas y minutos del campo STARTTIME y unirlo a la fecha del día actualmente procesando, ej: si STARTTIME = 1899-12-30 08:00:00.000, obtener “08:00” y si la fecha del día es “05/03/2025” entonces al unirlo debe resultar un valor datetime = “2025-03-05 08:00:00.000”, hecho esto almacenarlo a variable INICIO_DE_HORARIO.
+Para definir la hora de salida, se debe obtener las horas y minutos del campo ENDTIME y unirlo a la fecha del día actualmente procesando, ej: si ENDTIME = 1899-12-30 17:00:00.000, obtener “17:00” y si la fecha del día es “05/03/2025” entonces al unirlo debe resultar un valor datetime = “2025-03-05 17:00:00.000”, hecho esto almacenarlo a variable FIN_DE_HORARIO.
+Si día tiene TURNO_DE_AMANECIDA=true, entonces:
+Para definir la hora de entrada, se debe obtener las horas y minutos del campo STARTTIME y unirlo a la fecha del día actualmente procesando, ej: si STARTTIME = 1899-12-30 22:00:00.000, obtener “22:00” y  si la fecha del día es “05/03/2025” entonces al unirlo debe resultar un valor datetime = “2025-03-05 22:00:00.000”, hecho esto almacenarlo a variable INICIO_DE_HORARIO.
+Al ser un con TURNO_DE_AMANECIDA=true (EDAYS mayor que SDAYS), entonces para definir la hora de salida, se debe obtener las horas y minutos del campo ENDTIME y unirlo al día siguiente de la fecha del día actualmente procesando, ej: si ENDTIME = 1899-12-30 07:00:00.000, obtener “07:00” y el día siguiente de la fecha del día actual seria “06/03/2025” entonces al unirlo debe resultar un valor datetime = “2025-03-06 07:00:00.000”, hecho esto almacenarlo a variable FIN_DE_HORARIO.
+Sec. 03.04.- determinar las ventanas de horario para validar las marcas de entrada y de salida correctamente que serán necesarias para realizar los cálculos de conceptos de asistencia, para esto se debe realizar lo siguiente:
+REGLA DE IMPLEMENTACIÓN ÚNICA DE FECHAS/HORAS: Después de ejecutar Sec. 03.03 y Sec. 03.04, INICIO_DE_HORARIO, FIN_DE_HORARIO, INICIO_VENTANA_ENTRADA, FINAL_VENTANA_ENTRADA, INICIO_VENTANA_SALIDA y FINAL_VENTANA_SALIDA quedan definidos como DateTime completos y coherentes con la fecha real, incluyendo amanecidas. Desde este punto de la lógica (Sec. 03.05 en adelante) NO volver a preguntar, detectar ni calcular TURNO_DE_AMANECIDA para resolver diferencias de fechas. Todas las operaciones deberán realizarse directamente con esos DateTime ya normalizados. Si una operación cruza medianoche, la propia resta/suma entre DateTime debe resolverlo; NO agregar manualmente +24 horas. Esta regla aplica también a los cálculos de excepciones y horas justificadas que utilice INICIO_DE_HORARIO y FIN_DE_HORARIO*APROBADO*.
+VENTANA DE ENTRADA.- Para obtener la ventana para validar marcas de entrada se debe verificar si en el DETALLE_TURNO_HORARIO_ASIGNADO hay valores validos en los campos de CHECKINTIME1 y CHECKINTIME2, los valores que debe haber en ambos campos a la vez son de tipo DateTime los cuales se deben interpretar en horas y minutos antes y después de INICIO_DE_HORARIO, de la siguiente forma: 
+si CHECKINTIME1=1899-12-30 03:00:00.000 entonces obtener “03:00” que al restarle a INICIO_DE_HORARIO=“2025-03-05 22:00:00.000”, se obtendría un valor datetime = “2025-03-05 19:00:00.000”, hecho esto almacenarlo en variable INICIO_VENTANA_ENTRADA. 
+si CHECKINTIME2=1899-12-30 03:30:00.000 entonces obtener “03:30” que al sumarle a INICIO_DE_HORARIO=“2025-03-05 22:00:00.000”, se obtendría un valor datetime = “2025-03-06 01:30:00.000”, hecho esto almacenarlo en variable FINAL_VENTANA_ENTRADA.
+Sumando y restando las horas y/o minutos a INICIO_DE_HORARIO, habiéndolo previamente “armado” correctamente,  contemplamos los casos de amanecida si hacer validaciones adicionales, para el ejemplo indicado se tendría como resultado:
+INICIO_DE_HORARIO = “2025-03-05 22:00:00.000”
+INICIO_VENTANA_ENTRADA = “2025-03-05 19:00:00.000”
+FINAL_VENTANA_ENTRADA = “2025-03-06 01:30:00.000”
+De NO obtener valores válidos en los campos CHECKINTIME1 y CHECKINTIME2 a la vez, entonces se debe proceder de la siguiente manera por defecto:
+Para el INICIO_VENTANA_ENTRADA = a INICIO_DE_HORARIO se debe restarle 02 horas, ej: si  INICIO_DE_HORARIO = “2025-03-05 22:00:00.000” entonces INICIO_VENTANA_ENTRADA = ” 2025-03-05 20:00:00.000” (restando 02 horas), otro ej: si  INICIO_DE_HORARIO = “2025-03-05 08:00:00.000” entonces INICIO_VENTANA_ENTRADA = ” 2025-03-05 06:00:00.000”.
+Para el FINAL_VENTANA_ENTRADA = primero encontrar el tiempo a sumarle a INICIO_DE_HORARIO, para esto se debe realizar la siguiente formula: (FIN_DE_HORARIO - INICIO_DE_HORARIO)/2, el tiempo resultante se debe sumar a INICIO_DE_HORARIO, ej: si  INICIO_DE_HORARIO = “2025-03-05 22:00:00.000” y FIN_DE_HORARIO = “2025-03-06 07:00:00.000” al aplicar la formula resultara en “04:30”, que al sumarle a INICIO_DE_HORARIO  resultará en “”2025-03-06 02:30:00.000, almacenando el resultado en FINAL_VENTANA_ENTRADA.
+Para el ejemplo indicado se tendría como resultado:
+INICIO_DE_HORARIO = “2025-03-05 22:00:00.000”
+INICIO_VENTANA_ENTRADA = “2025-03-05 20:00:00.000”
+FINAL_VENTANA_ENTRADA = “2025-03-06 02:30:00.000”
+VENTANA DE SALIDA.- Para obtener la ventana para validar marcas de salida se debe verificar si en el DETALLE_TURNO_HORARIO_ASIGNADO hay valores validos en los campos de CHECKOUTTIME1 y CHECKOUTTIME2, los valores que debe haber en ambos campos a la vez son de tipo DateTime los cuales se deben interpretar en horas y minutos antes y después de FIN_DE_HORARIO, de la siguiente forma: 
+si CHECKOUTTIME1=1899-12-30 02:00:00.000 entonces obtener “02:00” que al restarle a FIN_DE_HORARIO=“2025-03-06 07:00:00.000”, se obtendría un valor datetime = “2025-03-06 05:00:00.000”, hecho esto almacenarlo en variable INICIO_VENTANA_SALIDA. 
+si CHECKOUTTIME2=1899-12-30 06:00:00.000 entonces obtener “06:00” que al sumarle a FIN_DE_HORARIO=“2025-03-06 07:00:00.000”, se obtendría un valor datetime = “2025-03-06 13:00:00.000”, hecho esto almacenarlo en variable FINAL_VENTANA_SALIDA.
+Sumando y restando las horas y/o minutos a FIN_DE_HORARIO, habiéndolo previamente “armado” correctamente,  contemplamos los casos de amanecida si hacer validaciones adicionales, para el ejemplo indicado se tendría como resultado:
+FIN_DE_HORARIO = “2025-03-06 07:00:00.000”
+INICIO_VENTANA_SALIDA = “2025-03-06 05:00:00.000”
+FINAL_VENTANA_SALIDA = “2025-03-06 13:00:00.000” 
+De NO obtener valores válidos en los campos CHECKOUTTIME1 y CHECKOUTTIME2 a la vez, entonces se debe proceder de la siguiente manera por defecto:
+Para el INICIO_VENTANA_SALIDA = primero encontrar el tiempo a restarle a FIN_DE_HORARIO, para esto se debe realizar la siguiente formula: (FIN_DE_HORARIO - INICIO_DE_HORARIO)/2, el tiempo resultante se debe restar a FIN_DE_HORARIO, ej: si  INICIO_DE_HORARIO = “2025-03-05 22:00:00.000” y FIN_DE_HORARIO = “2025-03-06 07:00:00.000” al aplicar la formula resultara en “04:30”, que al restarle a FIN_DE_HORARIO  resultará en “”2025-03-06 02:30:00.000, almacenando el resultado en INICIO_VENTANA_SALIDA.
+Para el FINAL_VENTANA_SALIDA = a FIN_DE_HORARIO se debe sumar 06 horas, ej: si  FIN_DE_HORARIO = “2025-03-06 07:00:00.000” entonces FINAL_VENTANA_SALIDA = ”2025-03-06 13:00:00.000” (sumando 06 horas), otro ej: si  FIN_DE_HORARIO = “2025-03-05 18:00:00.000” entonces FINAL_VENTANA_SALIDA = ” 2025-03-06 00:00:00.000”.
+Sec. 03.05.- Si NO tiene marcas grabadas en base de datos para el día: 
+El día se marca como FALTA (ausencia a centro de labores), colocando “SI” en columna Falta en AttendanceDayResult, en este caso el día se incluye en el acumulado total de días de FALTA para la persona y el rango de fechas solicitado, así mismo NO existirá cálculo de horas efectivas, ni cálculo de horas de permanencia, ni cálculo de tardanza, ni cálculo de salida temprana, ni cálculo de horas extras, a guardar en AttendanceDayResult, por más que AllowNoTurnOT = 1 y que LimitNoTurnOT = tenga cualquier valor o AllowHolidayOT = 1 y que LimitHolidayOT = tenga cualquier valor ó WeekenFullDayOT = 1.
+Si el día ES_FERIADO=true y ShowHoliday = 1, se debe colocar en colunma Horario de AttendanceDayResult al costado del nombre del Horario Asignado el valor “(FER)”, ej: “HR02 (FER)”, y en horas programadas de inicio y fin de horario las horas que corresponde del horario para ese día ej: “HR02 (FER) 08:00 - 18:00”.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=true y weekends de AttParam tiene configurado este día como fin de semana se debe colocar en colunma Horario Asignado de AttendanceDayResult al costado del nombre del horario el valor “(FDS)”, ej: “HR02 (FDS)”, y en horas programadas de inicio y fin de horario colocar las horas que corresponde del horario para ese día ej: “HR02 (FDS) 08:00 - 18:00”.
+Si día TIENE_EXCEPCIONES=true, solo en el caso de existir permisos/justificaciones para este día proceder así:
+Se debe eliminar la marca del día como FALTA y quitar este día del acumulado total de días de FALTA para la persona y el rango de fechas solicitado, además en las columnas Horas Efectivas y Horas de Permanencia de AttendanceDayResult, se debe colocar el valor  “00:00”.
+Si el día adicionalmente ES_FERIADO=true y ShowHoliday = 1, entonces agregarlo al acumulado de DIAS FERIADOS CON TURNO.
+Guarda en columna Excepcion de AttendanceDayResult, los nombres de excepciones existentes en LISTA_DE_EXCEPCIONES_DEL_DIA, dando prioridad a las que tienen Classify=0 para lo cual se debe realizar una sub-ordenación por: Unit, Classify, LeaveId y luego concatenar sus nombres, ej: “Olvido de Marcaje, Compensación Días” y para el cálculo realizar las siguientes validaciones. 
+Si LISTA_DE_EXCEPCIONES_DEL_DIA tiene al menos una excepción con Unit=3 (por día) entonces; si se agrega el día al acumulado de DIAS JUSTIFICADOS. 
+Si no hay en LISTA_DE_EXCEPCIONES_DEL_DIA  excepción con Unit=3 pero si con Unit=1 o 2 entonces se agrega al acumulado de HORAS JUSTIFICADAS, para lo cual se usara las horas programadas de inicio y fin del horario asignado para el día, de la siguiente forma:
+Si día tiene TURNO_DE_AMANECIDA=false, el cálculo es: FIN_DE_HORARIO  - INICIO_DE_HORARIO - REFRIGERIO, el resultado agregarlo al acumulado de HORAS JUSTIFICADAS, en formato 24 horas (HH:mm).
+Si día tiene TURNO_DE_AMANECIDA=true, el cálculo es: (FIN_DE_HORARIO+24horas)  - INICIO_DE_HORARIO - REFRIGERIO, el resultado agregarlo al acumulado de HORAS JUSTIFICADAS, en formato 24 horas (HH:mm).
+Al no haber marcas ni de entrada ni de salida, en la columna Entrada colocar “” y en la columna Salida colocar “” (de AttendanceDayResult) y pasar al día siguiente calendario a procesar.
+Sec. 03.06.- Si tiene marcas grabadas en base de datos para el día:
+Sec. 03.06.01.- determinar si hay MARCA_DE_ENTRADA y MARCA_DE_SALIDA dentro de ventanas entrada/salida del horario, para lo cual se comparan y evalúan todas las marcas registradas del día de la siguiente forma:
+MARCA_DE_ENTRADA.- para esto se deberá obtener todas las marcas que cumplan el siguiente criterio: 
+MARCA VALIDA &gt;= INICIO_VENTANA_ENTRADA y MARCA VALIDA &lt; FINAL_VENTANA_ENTRADA
+Y del grupo de “marcas validas de entrada” obtener la primera (1era) marca de ese grupo, este al ser un valor tipo DateTime se almacenará en MARCA_DE_ENTRADA.
+Si no existen “marcas validas de entrada” entonces MARCA_DE_ENTRADA  queda vacío.
+MARCA_DE_ENTRADA.- para esto se deberá obtener todas las marcas que cumplan el siguiente criterio:
+MARCA VALIDA &gt;= INICIO_VENTANA_SALIDA y MARCA VALIDA &lt;= FINAL_VENTANA_SALIDA
+Y del grupo de “marcas validas de salida” obtener la última marca de ese grupo, este al ser un valor tipo DateTime se almacenará en MARCA_DE_SALIDA.
+Si no existen “marcas validas de salida” entonces MARCA_DE_SALIDA  queda vacío.
+No usar CHECKTYPE=L para turnos asignados.
+Sec. 03.06.02.- obtenido la MARCA_DE_ENTRADA y MARCA_DE_SALIDA de forma preliminar solo podrán darse 4 casos, que se procederán de la siguiente forma:
+Sec. 03.06.02.01.- caso cuando no hay MARCA_DE_ENTRADA ni MARCA_DE_SALIDA, ambos están vacíos:
+Se debe seguir el mismo procedimiento del bloque: Sec. 03.05. 
+Pero antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar un asterisco (*),ej: “HR04 (*) 09:00 - 18:00” o “HR04 (FER)(*) 09:00 - 18:00” o “HR04 (FDS)(*) 09:00 - 18:00”.
+Sec. 03.06.02.02.- caso cuando NO hay MARCA_DE_ENTRADA pero si hay MARCA_DE_SALIDA:
+Verificar si parámetro de tabla AttParam tiene valor NoInAbsent=2, si fuera el caso :
+ Se debe seguir el mismo procedimiento del bloque: Sec. 03.05.
+Pero antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar una letra “e” minúscula (e),ej: “HR04 (e) 09:00 - 18:00” o “HR04 (FER)(e) 09:00 - 18:00” o “HR04 (FDS)(e) 09:00 - 18:00”.
+Si parámetro NoInAbsent=1, entonces: 
+El valor de INICIO_DE_HORARIO se toma como MARCA_DE_ENTRADA.
+Se verifica los minutos del parametro "MinsNoIn" y se toma este valor como tardanza para ese día = TARDANZA_DEL_DIA.
+Si parámetro NoInAbsent=0, entonces:
+El valor de INICIO_DE_HORARIO se toma como MARCA_DE_ENTRADA.
+Se aplica para TARDANZA_DEL_DIA=0. 
+Se compara FIN_DE_HORARIO contra MARCA_DE_SALIDA, si la MARCA_DE_SALIDA es realizada igual o después de FIN_DE_HORARIO se aplica SALIDA_TEMPRANA_DEL_DIA=0, pero si se realiza antes de FIN_DE_HORARIO, se resta FIN_DE_HORARIO - MARCA_DE_SALIDA y dicho resultado en minutos se compara con campo EARLYMINUTES y de ser mayor, dicho resultado se coloca en SALIDA_TEMPRANA_DEL_DIA, sino lo es entonces SALIDA_TEMPRANA_DEL_DIA =0.
+Si parámetro de tabla Attparam, EarlyAbsent =1 y MinsEarlyAbsent &gt; 0, entonces SALIDA_TEMPRANA_DEL_DIA se convierte a minutos y se compara con MinsEarlyAbsent y si es mayor a MinsEarlyAbsent, entonces debe seguir el mismo procedimiento del bloque: Sec. 03.05.  y no continuar en el actual, antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar : s*, ej: “HR04 (s*) 09:00 - 18:00” o “HR04 (FER)(s*) 09:00 - 18:00” o “HR04 (FDS)(s*) 09:00 - 18:00”.  
+Se calcula HORAS_PERMANENCIA que es la resta de MARCA_DE_SALIDA - INICIO_DE_HORARIO – REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO.
+Se calcula HORAS_EFECTIVAS, si la MARCA_DE_SALIDA es realizada igual o después de FIN_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO, pero si se realiza antes de FIN_DE_HORARIO, el cálculo es la resta de MARCA_DE_SALIDA - INICIO_DE_HORARIO - TARDANZA_DEL_DIA – REFRIGERIO **QUEDA ORIGINAL**.
+Sec. 03.06.02.03.- caso cuando si hay MARCA_DE_ENTRADA pero no MARCA_DE_SALIDA:
+Verificar si parámetro de tabla AttParam tiene valor NoOutAbsent=2, si fuera el caso :
+ Se debe seguir el mismo procedimiento del bloque: Sec. 03.05.
+Pero antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar una letra “s” minúscula (s),ej: “HR04 (s) 09:00 - 18:00” o “HR04 (FER)(s) 09:00 - 18:00” o “HR04 (FDS)(s) 09:00 - 18:00”.
+Si parámetro NoOutAbsent=1, entonces: 
+El valor de FIN_DE_HORARIO se toma como MARCA_DE_SALIDA.
+Se verifica los minutos del parametro " MinsNoLeave" y se toma este valor como salida temprana para ese día = SALIDA_TEMPRANA_DEL_DIA.
+Si parámetro NoOutAbsent=0, entonces:
+El valor de FIN_DE_HORARIO se toma como MARCA_DE_SALIDA.
+Se aplica para SALIDA_TEMPRANA_DEL_DIA =0. 
+Se compara INICIO_DE_HORARIO con MARCA_DE_ENTRADA, si la MARCA_DE_ENTRADA es realizada igual o antes de INICIO_DE_HORARIO se aplica TARDANZA_DEL_DIA=0, pero si se realiza después INICIO_DE_HORARIO, se resta MARCA_DE_ENTRADA - INICIO_DE_HORARIO y dicho resultado en minutos se compara con campo LATEMINUTES de DETALLE_TURNO_HORARIO_ASIGNADO y de ser mayor, dicho resultado se coloca en TARDANZA_DEL_DIA, sino lo es entonces TARDANZA_DEL_DIA=0.
+Si parámetro de tabla Attparam, LateAbsent=1 y MinsLateAbsent &gt; 0, entonces TARDANZA_DEL_DIA  se convierte a minutos y se compara con MinsLateAbsent y si es mayor a MinsLateAbsent, debe seguir el mismo procedimiento del bloque: Sec. 03.05.  y no continuar en el actual, antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar : e*,ej: “HR04 (e*) 09:00 - 18:00” o “HR04 (FER)(e*) 09:00 - 18:00” o “HR04 (FDS)(e*) 09:00 - 18:00”.
+Se calcula HORAS_PERMANENCIA que es la resta de MARCA_DE_SALIDA - INICIO_DE_HORARIO – REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO.
+Se calcula HORAS_EFECTIVAS, si la MARCA_DE_ENTRADA es realizada igual o antes de INICIO_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO, pero si se realiza después de INICIO_DE_HORARIO, el cálculo es la resta de  FIN_DE_HORARIO – MARCA_DE_ENTRADA - SALIDA_TEMPRANA_DEL_DIA – REFRIGERIO **QUEDA ORIGINAL**.
+.Sec. 03.06.02.04.- caso cuando si hay MARCA_DE_ENTRADA y también MARCA_DE_SALIDA:
+Se compara INICIO_DE_HORARIO con MARCA_DE_ENTRADA, si la MARCA_DE_ENTRADA es realizada igual o antes de INICIO_DE_HORARIO se aplica TARDANZA_DEL_DIA=0, pero si se realiza después INICIO_DE_HORARIO, se resta MARCA_DE_ENTRADA - INICIO_DE_HORARIO y dicho resultado en minutos se compara con campo LATEMINUTES de DETALLE_TURNO_HORARIO_ASIGNADO y de ser mayor, dicho resultado se coloca en TARDANZA_DEL_DIA, sino lo es entonces TARDANZA_DEL_DIA=0.
+Si parámetro de tabla Attparam, LateAbsent=1 y MinsLateAbsent &gt; 0, entonces TARDANZA_DEL_DIA  se convierte a minutos y se compara con MinsLateAbsent y si es mayor a MinsLateAbsent, entonces debe seguir el mismo procedimiento del bloque: Sec. 03.05.  y no continuar en el actual, antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar : e*, ej: “HR04 (e*) 09:00 - 18:00” o “HR04 (FER)(e*) 09:00 - 18:00” o “HR04 (FDS)(e*) 09:00 - 18:00”.
+Se compara FIN_DE_HORARIO contra MARCA_DE_SALIDA, si la MARCA_DE_SALIDA es realizada igual o después de FIN_DE_HORARIO se aplica SALIDA_TEMPRANA_DEL_DIA=0, pero si se realiza antes de FIN_DE_HORARIO, se resta FIN_DE_HORARIO  - MARCA_DE_SALIDA y dicho resultado en minutos se compara con campo EARLYMINUTES de DETALLE_TURNO_HORARIO_ASIGNADO y de ser mayor, dicho resultado se coloca en SALIDA_TEMPRANA_DEL_DIA, sino lo es entonces SALIDA_TEMPRANA_DEL_DIA =0.
+Si parámetro de tabla Attparam, EarlyAbsent =1 y MinsEarlyAbsent &gt; 0, entonces SALIDA_TEMPRANA_DEL_DIA se convierte a minutos y se compara con MinsEarlyAbsent y si es mayor a MinsEarlyAbsent, entonces debe seguir el mismo procedimiento del bloque: Sec. 03.05.  y no continuar en el actual, antes de terminar el bloque: Sec. 03.05. adicionalmente en columna Horario Asignado de AttendanceDayResult agregar : s*, ej: “HR04 (s*) 09:00 - 18:00” o “HR04 (FER)(s*) 09:00 - 18:00” o “HR04 (FDS)(s*) 09:00 - 18:00”.
+Se calcula HORAS_PERMANENCIA que es la resta de MARCA_DE_SALIDA - INICIO_DE_HORARIO – REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO.
+Se calcula HORAS_EFECTIVAS, se resta de la sgte forma: FIN_DE_HORARIO – INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO *QUEDA ORIGINAL*.
+Sec. 03.06.03.- El cálculo de horas extras (HE), se evalua cuando el trabajador hizo sobretiempo antes de entrar (HORAEXTRA_ENTRADA) y/o después de salir (HORAEXTRA_SALIDA) y siempre que los campos correspondientes del sistema estén activos:  
+IntervalOfAfterOT_ e IntervalOfEarlyOT_ son parámetros existentes en AttParam pero NO SE UTILIZAN en el motor. El cálculo de HORAEXTRA_ENTRADA/HORAEXTRA_SALIDA usa IntervalOfEarlyOT e IntervalOfAfterOT respectivamente, y sus valores *_ no participan en ningún cálculo *APROBADO*.
+Para HE en salida (HORAEXTRA_SALIDA), en tabla AttParam, validar si AllowAfterOT=1 y IntervalOfAfterOT &gt; 0 y MARCA_DE_SALIDA &gt; FIN_DE_HORARIO, de cumplirse, se debe obtener el cálculo de la siguiente forma:
+Restar MARCA_DE_SALIDA - FIN_DE_HORARIO a dicho resultado convertido en minutos se compara con IntervalOfAfterOT de ser igual o mayor, dicho resultado se coloca en HORAEXTRA_SALIDA, sino entonces HORAEXTRA_SALIDA =0.
+Adicionalmente si LimitAfterMaxOT=1 y AfterMaxOT &gt; 0 y HORAEXTRA_SALIDA &gt; 0, entonces se compara HORAEXTRA_SALIDA con ; si HORAEXTRA_SALIDA es MAYOR que AfterMaxOT, reemplazarla por AfterMaxOT. Si es igual, conservarla sin modificación. *APROBADO*
+Para HE en entrada (HORAEXTRA_ENTRADA), en tabla AttParam, validar si AllowEarlyOT =1 y IntervalOfEarlyOT &gt; 0 y MARCA_DE_ENTRADA &lt; INICIO_DE_HORARIO, de cumplirse, se debe obtener el cálculo de la siguiente forma:
+Restar INICIO_DE_HORARIO - MARCA_DE_ENTRADA a dicho resultado convertido en minutos se compara con IntervalOfEarlyOT de ser igual o mayor, dicho resultado se coloca en HORAEXTRA_ENTRADA, sino entonces HORAEXTRA_ENTRADA=0.
+Adicionalmente si LimitEarlyMaxOT =1 y EarlyMaxOT &gt; 0 y HORAEXTRA_ENTRADA &gt; 0, entonces se compara HORAEXTRA_ENTRADA con ; si HORAEXTRA_ENTRADA es MAYOR que EarlyMaxOT, reemplazarla por EarlyMaxOT. Si es igual, conservarla sin modificación*APROBADO*
+Sec. 03.06.04.- El valor de la columna horas extras (HE) a guardar en AttendanceDayResult, dependerá de:  
+Si el día ES_FERIADO=true 
+Y AllowHolidayOT = 0 y LimitHolidayOT = cualquier valor, entonces horas extras tiene el valor de “”.
+Y AllowHolidayOT = 1 y LimitHolidayOT = 0 y (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) &gt; 0, entonces horas extras tiene el valor de la suma de HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA convertido a formato HH:mm 24horas. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Y AllowHolidayOT = 1 y LimitHolidayOT = mayor a 0 y (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) &gt; 0, entonces horas extras tiene el valor calculado de (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) siempre que este sea menor o igual que LimitHolidayOT, para lo cual (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) debe convertirse a minutos y compararse con LimitHolidayOT (valor entero en minutos). Por otra parte si (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) es mayor a LimitHolidayOT, debe colocarse el valor de LimitHolidayOT en formato 24 horas (HH:mm), Nunca sobrepasará las 24 horas. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Si el día ES_FERIADO=false
+y ES_FIN_DE_SEMANA=true 
+si WeekenFullDayOT = 0, entonces horas extras tiene el valor de “”.
+si WeekenFullDayOT = 1 y (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) &gt; 0, entonces horas extras tiene el valor calculado de (HORAEXTRA_ENTRADA + HORAEXTRA_SALIDA) en formato 24 horas (HH:mm), Nunca sobre pasará las 24. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+y ES_FIN_DE_SEMANA=false
+si AllowAfterOT=0 y AllowEarlyOT=0, entonces horas extras tiene el valor de “”.
+si (AllowAfterOT=1 y HORAEXTRA_SALIDA &gt; 0) y (AllowEarlyOT=0 y HORAEXTRA_ENTRADA = 0), entonces horas extras tiene el valor calculado en HORAEXTRA_SALIDA en formato 24 horas (HH:mm), Nunca sobre pasará las 24. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+si (AllowAfterOT=0 y HORAEXTRA_SALIDA = 0) y (AllowEarlyOT=1 y HORAEXTRA_ENTRADA &gt; 0), entonces horas extras tiene el valor calculado en HORAEXTRA_ENTRADA en formato 24 horas (HH:mm), Nunca sobre pasará las 24. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+si (AllowAfterOT=1 y HORAEXTRA_SALIDA &gt; 0) y (AllowEarlyOT=1 y HORAEXTRA_ENTRADA &gt; 0), entonces horas extras tiene el valor calculado en (HORAEXTRA_SALIDA+ HORAEXTRA_ENTRADA) en formato 24 horas (HH:mm), Nunca sobre pasará las 24. Agregar al ACUMULADO DE HORAS EXTRAS. *APROBADO*.
+Si el día ES_FERIADO=true y ShowHoliday = 1, se debe colocar en colunma Horario Asignado de AttendanceDayResult al costado del nombre del horario el valor “(FER)”, ej: “HR02 (FER)”, y en horas programadas de inicio y fin de horario las horas que corresponde del horario para ese día ej: “HR02 (FER) 08:00 - 18:00”.
+Si el día ES_FERIADO=false y ES_FIN_DE_SEMANA=true y weekends de AttParam tiene configurado este día como fin de semana se debe colocar en colunma Horario Asignado de AttendanceDayResult al costado del nombre del horario el valor “(FDS)”, ej: “HR02 (FDS)”, y en horas programadas de inicio y fin de horario colocar las horas que corresponde del horario para ese día ej: “HR02 (FDS) 08:00 - 18:00”..
+Sec. 03.06.05.- El cálculo de excepciones: Si día TIENE_EXCEPCIONES=true, solo en el caso de existir permisos/justificaciones proceder así:
+Guarda en columna Excepcion de AttendanceDayResult, los nombres de excepciones existentes en LISTA_DE_EXCEPCIONES_DEL_DIA, dando prioridad a las que tienen Classify=0 para lo cual se debe realizar una sub-ordenación por: Unit, Classify, LeaveId y luego concatenar sus nombres, ej: “Olvido de Marcaje, Compensación Días” y para el cálculo realizar las siguientes validaciones: 
+Si en LISTA_DE_EXCEPCIONES_DEL_DIA tiene al menos una excepción con Unit=3 (por día) entonces filtrarlas y proceder de la siguiente forma:
+Agregar el día al acumulado de DIAS JUSTIFICADOS
+De haber al menos una excepción con Unit=3 ya sea Classify=0 o 128, se debe colocar TARDANZA_DEL_DIA=0 y SALIDA_TEMPRANA_DEL_DIA=0 y volver a aplicar el cálculo para horas efectivas según el caso:
+para Sec. 03.06.02.02: HORAS_EFECTIVAS = si la MARCA_DE_SALIDA es realizada igual o después de FIN_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO, pero si se realiza antes de FIN_DE_HORARIO, el cálculo es la resta de MARCA_DE_SALIDA - INICIO_DE_HORARIO - TARDANZA_DEL_DIA – REFRIGERIO *QUEDA ASI*.
+para Sec. 03.06.02.03: HORAS_EFECTIVAS = si la MARCA_DE_ENTRADA es realizada igual o antes de INICIO_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO, pero si se realiza después de INICIO_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - MARCA_DE_ENTRADA - SALIDA_TEMPRANA_DEL_DIA – REFRIGERIO *QUEDA ASI*.
+para Sec. 03.06.02.04: HORAS_EFECTIVAS = se resta de la sgte forma: FIN_DE_HORARIO – INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO *QUEDA ASI*.
+Si no hay en LISTA_DE_EXCEPCIONES_DEL_DIA  excepción con Unit=3 pero si con Unit=1 o 2 entonces se agrega al acumulado de HORAS JUSTIFICADAS, de la siguiente forma:
+Si TARDANZA_DEL_DIA &gt; 0 entonces, obtener de LISTA_DE_EXCEPCIONES_DEL_DIA  la excepción que concuerde con algunas de los 4 escenarios siguientes a validar:
+Si la excepción está dentro del rango de horas de tardanza, cuando (STARTSPECDAY &gt;=  INICIO_DE_HORARIO y ENDSPECDAY &lt; (MARCA_DE_ENTRADA + 01 MINUTO)), se obtienen los minutos entre (ENDSPECDAY - STARTSPECDAY) y se restan de TARDANZA_DEL_DIA, almacenando el nuevo valor en TARDANZA_DEL_DIA, agregando los minutos de (ENDSPECDAY – STARTSPECDAY) al acumulado de HORAS JUSTIFICADAS.
+Si la excepción cae antes de la hora de ingreso y dentro del rango de horas de tardanza, cuando STARTSPECDAY &lt; INICIO_DE_HORARIO y ([ENDSPECDAY =&gt; INICIO_DE_HORARIO] y [ENDSPECDAY &lt; (MARCA_DE_ENTRADA + 01 MINUTO)]), se obtienen los minutos entre (ENDSPECDAY - INICIO_DE_HORARIO) y se restan de TARDANZA_DEL_DIA, almacenando el nuevo valor en TARDANZA_DEL_DIA, agregando los minutos de (ENDSPECDAY - INICIO_DE_HORARIO) al acumulado de HORAS JUSTIFICADAS.
+Si la excepción cae dentro del rango de horas de tardanza y después de esta, cuando ([STARTSPECDAY &gt;= INICIO_DE_HORARIO] y ([STARTSPECDAY &lt; (MARCA_DE_ENTRADA + 01 MINUTO)]) y (ENDSPECDAY &gt; MARCA_DE_ENTRADA), se obtienen los minutos entre (MARCA_DE_ENTRADA - STARTSPECDAY) y se restan de TARDANZA_DEL_DIA, almacenando el nuevo valor en TARDANZA_DEL_DIA, agregando los minutos de (MARCA_DE_ENTRADA - STARTSPECDAY) al acumulado de HORAS JUSTIFICADAS.
+Si la excepción está en un rango que contiene al rango de horas de tardanza, cuando (STARTSPECDAY &lt; INICIO_DE_HORARIO y ENDSPECDAY &gt; MARCA_DE_ENTRADA), en este caso TARDANZA_DEL_DIA=0, agregando los minutos de (MARCA_DE_ENTRADA  - INICIO_DE_HORARIO) al acumulado de HORAS JUSTIFICADAS.
+Si SALIDA_TEMPRANA_DEL_DIA &gt; 0 entonces, obtener de LISTA_DE_EXCEPCIONES_DEL_DIA  la excepción que concuerde con algunas de los 4 escenarios siguientes a validar:
+Si la excepción está dentro del rango de horas de salida temprana, cuando (STARTSPECDAY &gt;=  MARCA_DE_SALIDA y ENDSPECDAY &lt; (FIN_DE_HORARIO + 01 MINUTO)), se obtienen los minutos entre (ENDSPECDAY - STARTSPECDAY) y se restan de SALIDA_TEMPRANA_DEL_DIA, almacenando el nuevo valor en SALIDA_TEMPRANA_DEL_DIA, agregando los minutos de (ENDSPECDAY – STARTSPECDAY) al acumulado de HORAS JUSTIFICADAS.
+Si la excepción cae antes de la hora de salida y dentro del rango de horas de salida temprana, cuando (STARTSPECDAY &lt; MARCA_DE_SALIDA y ([ENDSPECDAY &gt;= MARCA_DE_SALIDA] y [ENDSPECDAY &lt; (FIN_DE_HORARIO + 01 MINUTO)]), se obtienen los minutos entre (ENDSPECDAY - MARCA_DE_SALIDA) y se restan de SALIDA_TEMPRANA_DEL_DIA, almacenando el nuevo valor en SALIDA_TEMPRANA_DEL_DIA, agregando los minutos de (ENDSPECDAY - MARCA_DE_SALIDA) al acumulado de HORAS JUSTIFICADAS.
+Si la excepción cae dentro del rango de horas de salida temprana y después de esta, cuando ([STARTSPECDAY &gt;= MARCA_DE_SALIDA] y ([STARTSPECDAY &lt; (FIN_DE_HORARIO + 01 MINUTO)]) y (ENDSPECDAY &gt; FIN_DE_HORARIO), se obtienen los minutos entre (FIN_DE_HORARIO - STARTSPECDAY) y se restan de SALIDA_TEMPRANA_DEL_DIA, almacenando el nuevo valor en SALIDA_TEMPRANA_DEL_DIA, agregando los minutos de (FIN_DE_HORARIO - STARTSPECDAY) al acumulado de HORAS JUSTIFICADAS.
+Si la excepción está en un rango que contiene al rango de horas de salida temprana, cuando (STARTSPECDAY &lt; MARCA_DE_SALIDA y ENDSPECDAY &gt; FIN_DE_HORARIO), en este caso SALIDA_TEMPRANA_DEL_DIA=0, agregando los minutos de (FIN_DE_HORARIO – MARCA_DE_SALIDA) al acumulado de HORAS JUSTIFICADAS.
+Evaluado las justificaciones y permisos para TARDANZA_DEL_DIA &gt; 0 y/o SALIDA_TEMPRANA_DE_DIA&gt;0  SE volver a aplicar el cálculo para horas efectivas según el caso:
+para Sec. 03.06.02.02: HORAS_EFECTIVAS = si la MARCA_DE_SALIDA es realizada igual o después de FIN_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO, pero si se realiza antes de FIN_DE_HORARIO, el cálculo es la resta de MARCA_DE_SALIDA - INICIO_DE_HORARIO - TARDANZA_DEL_DIA – REFRIGERIO *QUEDA ASI*.
+para Sec. 03.06.02.03: HORAS_EFECTIVAS = si la MARCA_DE_ENTRADA es realizada igual o antes de INICIO_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO de DETALLE_TURNO_HORARIO_ASIGNADO, pero si se realiza después de INICIO_DE_HORARIO, el cálculo es la resta de FIN_DE_HORARIO - MARCA_DE_ENTRADA - SALIDA_TEMPRANA_DEL_DIA – REFRIGERIO *QUEDA ASI*.
+para Sec. 03.06.02.04: HORAS_EFECTIVAS = se resta de la sgte forma: FIN_DE_HORARIO – INICIO_DE_HORARIO - TARDANZA_DEL_DIA - SALIDA_TEMPRANA_DEL_DIA - REFRIGERIO *QUEDA ASI*
+Sec. 03.06.06.- Una vez terminado el cálculo final del día y antes de continuar al siguiente día, actualizar los acumulados de conceptos numéricos usando exclusivamente los valores finales de AttendanceDayResult: si HORAS_EFECTIVAS &gt; 0 sumar a ACUMULADO DE HORAS EFECTIVAS; si HORAS_PERMANENCIA &gt; 0 sumar a ACUMULADO DE HORAS DE PERMANENCIA; si TARDANZA_DEL_DIA &gt; 0 sumar a ACUMULADO DE TARDANZAS DEL DIA; si SALIDA_TEMPRANA_DEL_DIA &gt; 0 sumar a ACUMULADO DE SALIDAS TEMPRANO DEL DIA; si HORAS_EXTRAS &gt; 0 sumar a ACUMULADO DE HORAS EXTRAS. Esta operación se ejecuta una sola vez por día resultante para evitar doble contabilización. Y en las columnas de AttendanceDayResult, se debe mostrar *APROBADO*:
+Entrada = MARCA_DE_ENTRADA (HH:mm) 24horas
+Salida= MARCA_DE_SALIDA (HH:mm) 24horas
+Si es caso Sec. 03.06.02.01 Entrada y Salida tiene valor = “”
+Si es caso Sec. 03.06.02.02 Entrada tiene valor = “”
+Si es caso Sec. 03.06.02.03 Salida tiene valor = “”
+Falta= “No”
+Horas Efectivas= HORAS_EFECTIVAS (HH:mm) 24horas
+Horas Permanencia= HORAS_PERMANENCIA (HH:mm) 24horas
+Tardanza Entrada= TARDANZA_DEL_DIA (HH:mm) 24horas
+Salida Temprana= SALIDA_TEMPRANA_DEL_DIA (HH:mm) 24horas
+Horas Extras= Según lo indicado en bloque: Sec. 03.06.04.
+Excepciones= Según lo indicado en bloque: Sec. 03.06.05.
+Marcas Intermedias= Todas las marcas del día que no se usaron como MARCA_DE_ENTRADA, ni MARCA_DE_SALIDA deben de mostrarse aquí separadas por comas, ej: “08:13, 13:01, 14:16”. Las marcas intermedias NO INTERNVIENE EN LOS CALCULOS DE CONCEPTOS DE ASISTENCIA..
+Sec. 03.06.07.- Otros:
+Si el día ES_FERIADO=true y ShowHoliday = 1, entonces agregarlo al acumulado de DIAS FERIADOS CON TURNO.
+Finalmente se agrega el día al ACUMULADO de DIAS DE ASISTENCIA para la persona y filtro de fechas solicitado y se continúa con el siguiente día calendario a procesar.
+TRAZABILIDAD OBLIGATORIA ENTRE CÓDIGO Y LÓGICA DE NEGOCIO: SE OBLIGA a implementar el motor respetando literalmente la numeración de esta especificación. Cada método/clase/bloque es relevante deberá identificar explícitamente la sección de negocio que implementa, mediante nombre, comentario XML o comentario de código con formato, por ejemplo: [ASISTWEB][SEC.03.06.02.04]. No se permite mezclar en un mismo método reglas pertenecientes a secciones distintas sin delimitar claramente cada bloque. Cada cálculo deberá poder rastrearse desde el código hasta Sec. 00, 01, 02, 03.01...03.06.07. Las fórmulas marcadas en este documento como: QUEDA ORIGINAL/QUEDA ASÍ/APROBADO son autoridad funcional y NO deben ser sustituidas por una fórmula alternativa por criterio del programador o de CLINE. Antes de modificar una fórmula aprobada, CLINE deberá detenerse y solicitar confirmación explícita.
+Sec. 04.- Sumatorias a realizar por cada LISTA DE DIAS CALENDARIO procesado y resultante correspondiente a cada persona, del listado de personas solicitadas a procesar, los totalizados a mostrar en el reporte  pdf y en el formato de Excel son los siguientes:
+Los nombres funcionales y variables de acumulado son exactamente los siguientes: DIAS PROGRAMADOS CON TURNO; DIAS DE ASISTENCIA; DIAS DE ASISTENCIA SIN TURNO; DIAS CON FALTA; HORAS EFECTIVAS; HORAS DE PERMANENCIA; TARDANZAS DEL DIA; SALIDAS TEMPRANO DEL DIA; HORAS EXTRAS; FERIADOS CON TURNO; FERIADOS SIN TURNO; DIAS JUSTIFICADOS; HORAS JUSTIFICADAS. Cada acumulado se actualiza durante el procesamiento del día según las reglas de cada bloque y Sec. 04 únicamente los totaliza para presentación. Ningún acumulado debe recalcularse a partir de la grilla *APROBADO*.
+Días de Programados = total de días que la persona tiene asignación de turno y horario en el rango de fechas consultado DIAS PROGRAMADOS CON TURNO (número entero, ej: 21 días) 
+Días de Asistencia = ACUMULADO DE DIAS DE ASISTENCIA (número entero, ej: 20 días)
+Días Sin Turno = ACUMULADO DE DIAS DE ASISTENCIA SIN TURNO (número entero, ej: 2 días)
+Días con Falta= ACUMULADO DE DIAS CON FALTA (número entero, ej: 3 días)
+Horas Efectivas= ACUMULADO DE HORAS EFECTIVAS (HHH:mm, ej: 105:45, que se leería como105 horas y 45 minutos)
+Horas de Permanencia= ACUMULADO DE HORAS DE PERMANENCIA (HHH:mm, ej: 105:45, que se leería como105 horas y 45 minutos)
+Horas de Tardanza= ACUMULADO DE TARDANZAS DEL DIA (HHH:mm, ej: 105:45, que se leería como105 horas y 45 minutos)
+Horas Salida Temprano= ACUMULADO DE SALIDAS TEMPRANO DEL DIA (HHH:mm, ej: 105:45, que se leería como105 horas y 45 minutos)
+Horas Extras= ACUMULADO DE HORAS EXTRAS (HHH:mm, ej: 105:45, que se leería como105 horas y 45 minutos)
+Feriados con Turno= ACUMULADO DE FERIADOS CON TURNO (número entero, ej: 1 días)
+Feriados Sin Turno= ACUMULADO DE FERIADOS SIN TURNO (número entero, ej: 2 días), No utilizar ACUMULADO DE FERIADOS CON TURNO para este total *APROBADO*.
+Días Justificados= ACUMULADO DE DIAS JUSTIFICADOS (número entero, ej: 5 días)
+Horas Justificadas= ACUMULADO DE HORAS JUSTIFICADOS (HHH:mm, ej: 105:45, que se leería como105 horas y 45 minutos)
+Sec. 05.- Filtros que debe soportar el motor de asistencia cuando se solicite y que además se debe implementar en pantalla de filtro de búsqueda:
+El comportamiento que debe seguir el motor de asistencia cuando solicite filtros es:
+Procesar todas las personas solicitado en el rango de fechas solicitado en los filtros, como se indica desde el bloque Sec. 01 al bloque Sec. 05. Y una vez obtenido los resultados del motor, en este punto recién realizar el filtro solicitado (faltas, tardanzas, etc) para SOLO ENTREGAR y MOSTRAR en la pantalla aquellos que pide el filtro y estos se pueda generar su reporte pdf  y excel respectivos.
+Definición de criterio de cada filtro para evitar interpretaciones: FALTAS =&gt; Falta="Si"; TARDANZAS =&gt; TARDANZA_DEL_DIA&gt;00:00; SALIDAS TEMPRANAS =&gt; SALIDA_TEMPRANA_DEL_DIA&gt;00:00; HORAS EXTRA =&gt; HORAS_EXTRAS&gt;00:00; PERMISOS/JUSTIFICACIONES =&gt; TIENE_EXCEPCIONES=true; ASISTENCIA SIN TURNO =&gt; día procesado por Sec.02; FERIADOS =&gt; ES_FERIADO=true, incluyendo FERIADO CON TURNO y FERIADO SIN TURNO. El motor calcula primero todo el rango y el filtro solo decide qué resultados mostrar/exportar.
+Los FILTROS de conceptos de asistencia que se deben implementar y que el usuario puede solicitar  son los siguientes (respetar los colores):
+Color
+Concepto de Asistencia
+ 
+FALTAS
+ 
+TARDANZAS
+ 
+SALIDAS TEMPRANAS
+ 
+HORAS EXTRA
+ 
+PERMISOS/JUSTIFICACIONES
+ 
+ASISTENCIA SIN TURNO
+ 
+FERIADOS
+Asi mismo respetar los colores en la pantalla de grilla, según demo:
+.

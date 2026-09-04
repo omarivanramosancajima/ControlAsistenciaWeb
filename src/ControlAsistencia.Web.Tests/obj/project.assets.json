@@ -2211,40 +2211,32 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\ISAL 1\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\ISAL 1\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\ControlAsistencia.Web.Tests.csproj",
+      "projectUniqueName": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\ControlAsistencia.Web.Tests.csproj",
       "projectName": "ControlAsistencia.Web.Tests",
-      "projectPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\ControlAsistencia.Web.Tests.csproj",
+      "projectPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\ControlAsistencia.Web.Tests.csproj",
       "packagesPath": "C:\\Users\\ISAL 1\\.nuget\\packages\\",
-      "outputPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\obj\\",
+      "outputPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\ISAL 1\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "C:\\Users\\ISAL 1\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj": {
-              "projectPath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj"
+            "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj": {
+              "projectPath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\ControlAsistencia.Web.csproj"
             }
           }
         }
@@ -2293,7 +2285,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.300/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.424/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

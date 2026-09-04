@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "I+nAeTJHAGU=",
+  "dgSpecHash": "gl5dbaC3MxE=",
   "success": true,
-  "projectFilePath": "d:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\ControlAsistencia.Web.Tests.csproj",
+  "projectFilePath": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web.Tests\\ControlAsistencia.Web.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ISAL 1\\.nuget\\packages\\closedxml\\0.105.1\\closedxml.0.105.1.nupkg.sha512",
     "C:\\Users\\ISAL 1\\.nuget\\packages\\closedxml.parser\\2.0.0\\closedxml.parser.2.0.0.nupkg.sha512",

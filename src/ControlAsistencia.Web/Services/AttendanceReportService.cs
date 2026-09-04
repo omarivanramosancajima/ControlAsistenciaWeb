@@ -46,17 +46,24 @@ public class AttendanceReportService : IAttendanceReportService
 
     public async Task<AttendanceReportIndexViewModel> BuildFilterModelAsync(AttendanceReportRequest request)
     {
-        var availablePersons = await _repository.GetFilterPersonsAsync(null, null);
+        var availablePersons = request.AreaDeptId.HasValue
+            ? await _repository.GetFilterPersonsByAreaAsync(null, request.AreaDeptId.Value)
+            : await _repository.GetFilterPersonsAsync(null, null);
         var availableAreas = await _repository.GetAvailableAreasAsync();
+        var areasJerarquia = await _repository.GetAreaHierarchyAsync();
         var availableStates = BuildAvailableStates();
         var company = await _repository.GetCompanyInfoAsync();
+        var selectedAreaName = request.AreaDeptId.HasValue
+            ? areasJerarquia.FirstOrDefault(x => x.DeptId == request.AreaDeptId.Value)?.DeptName
+            : null;
 
         return new AttendanceReportIndexViewModel
         {
             FechaDesde = request.FechaDesde?.Date ?? DateTime.Today.AddDays(-30),
             FechaHasta = request.FechaHasta?.Date ?? DateTime.Today,
             Persona = NormalizeText(request.Persona),
-            Area = NormalizeText(request.Area),
+            Area = selectedAreaName ?? NormalizeText(request.Area),
+            AreaDeptId = request.AreaDeptId,
             Estado = NormalizeText(request.Estado),
             PageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber,
             PageSize = request.PageSize <= 0 ? 20 : request.PageSize,
@@ -67,6 +74,7 @@ public class AttendanceReportService : IAttendanceReportService
                 .OrderBy(static x => x)
                 .ToList(),
             AreasDisponibles = availableAreas,
+            AreasJerarquia = areasJerarquia,
             EstadosDisponibles = availableStates,
             CompanyTaxId = company?.TaxId ?? string.Empty,
             CompanyName = company?.CompanyName ?? string.Empty
@@ -81,7 +89,9 @@ public class AttendanceReportService : IAttendanceReportService
 
     private async Task<IReadOnlyList<AttendanceReportPersonSummaryViewModel>> BuildPersonsAsync(AttendanceReportRequest request)
     {
-        var filterPersons = await _repository.GetFilterPersonsAsync(request.Persona, request.Area);
+        var filterPersons = request.AreaDeptId.HasValue
+            ? await _repository.GetFilterPersonsByAreaAsync(request.Persona, request.AreaDeptId.Value)
+            : await _repository.GetFilterPersonsAsync(request.Persona, null);
         var result = new List<AttendanceReportPersonSummaryViewModel>();
 
         foreach (var person in filterPersons)
@@ -335,6 +345,7 @@ public class AttendanceReportService : IAttendanceReportService
             FechaHasta = to,
             Persona = NormalizeText(request.Persona),
             Area = NormalizeText(request.Area),
+            AreaDeptId = request.AreaDeptId,
             Estado = NormalizeText(request.Estado),
             PageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber,
             PageSize = request.PageSize <= 0 ? 20 : request.PageSize

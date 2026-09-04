@@ -13,8 +13,8 @@
         @if (!hasValidationMessage)
         {
             <div class="d-flex flex-wrap gap-2 attendance-report-actions">
-                <a asp-action="ExportarExcel" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
-                <a asp-action="EmitirReporte" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+                <a asp-action="ExportarExcel" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
+                <a asp-action="EmitirReporte" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
             </div>
         }
     </div>
@@ -47,20 +47,25 @@
             </div>
             <div class="col-md-6 col-lg-2">
                 <label class="form-label">Área</label>
-                <select name="area" class="form-select">
-                    <option value="">Todas</option>
-                    @foreach (var item in Model.AreasDisponibles)
+                <div class="d-flex gap-2">
+                    <input type="hidden" name="areaDeptId" id="areaDeptId" value="@Model.AreaDeptId" />
+                    <button type="button"
+                            class="btn btn-outline-primary flex-grow-1 text-start"
+                            id="areaSelectorButton"
+                            data-bs-toggle="modal"
+                            data-bs-target="#areaHierarchyModal"
+                            aria-label="Seleccionar área">
+                        @(string.IsNullOrWhiteSpace(Model.Area) ? "Todas" : Model.Area)
+                    </button>
+                    @if (Model.AreaDeptId.HasValue)
                     {
-                        if (string.Equals(item, Model.Area, StringComparison.OrdinalIgnoreCase))
-                        {
-                            <option value="@item" selected>@item</option>
-                        }
-                        else
-                        {
-                            <option value="@item">@item</option>
-                        }
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                id="clearAreaButton"
+                                title="Mostrar todas las áreas"
+                                aria-label="Mostrar todas las áreas">×</button>
                     }
-                </select>
+                </div>
             </div>
             <div class="col-md-6 col-lg-2">
                 <label class="form-label">Estado</label>
@@ -86,6 +91,44 @@
                 <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
             </div>
         </form>
+        <div class="modal fade" id="areaHierarchyModal" tabindex="-1" aria-labelledby="areaHierarchyModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="areaHierarchyModalLabel">Seleccionar Área / Ubicación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="list-group">
+                            <button type="button"
+                                    class="list-group-item list-group-item-action @(Model.AreaDeptId.HasValue ? string.Empty : "active")"
+                                    data-area-dept-id=""
+                                    data-area-name="Todas">
+                                Todas
+                            </button>
+                            @foreach (var area in Model.AreasJerarquia)
+                            {
+                                var isSelected = Model.AreaDeptId.HasValue && Model.AreaDeptId.Value == area.DeptId;
+                                <button type="button"
+                                        class="list-group-item list-group-item-action @(isSelected ? "active" : string.Empty)"
+                                        data-area-dept-id="@area.DeptId"
+                                        data-area-name="@area.DeptName">
+                                    @for (var level = 0; level < area.Level; level++)
+                                    {
+                                        <span class="ms-1" aria-hidden="true">&nbsp;</span>
+                                    }
+                                    @area.DeptName
+                                </button>
+                            }
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="attendance-report-meta d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2 mb-3">
             <div>
                 <div class="text-muted small">Registros: <strong>@Model.TotalRecords</strong> · Página <strong>@Model.PageNumber</strong> de <strong>@Model.TotalPages</strong> · @Model.PageSize registros por página</div>
@@ -178,16 +221,16 @@
             <nav aria-label="Paginación de reporte de asistencia" class="mt-3">
                 <ul class="pagination attendance-report-pagination justify-content-end mb-0">
                     <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : null)">
-                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber - 1)" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado">Anterior</a>
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber - 1)" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado">Anterior</a>
                     </li>
                     @for (var i = 1; i <= Model.TotalPages; i++)
                     {
                         <li class="page-item @(i == Model.PageNumber ? "active" : null)">
-                            <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado">@i</a>
+                            <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado">@i</a>
                         </li>
                     }
                     <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : null)">
-                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber + 1)" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-estado="@Model.Estado">Siguiente</a>
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.PageNumber + 1)" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado">Siguiente</a>
                     </li>
                 </ul>
             </nav>
@@ -195,6 +238,35 @@
         }
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.querySelector(".attendance-report-filters");
+    const areaDeptId = document.getElementById("areaDeptId");
+    const areaSelectorButton = document.getElementById("areaSelectorButton");
+    const clearAreaButton = document.getElementById("clearAreaButton");
+    const areaHierarchyModal = document.getElementById("areaHierarchyModal");
+
+    if (!form || !areaDeptId || !areaSelectorButton || !areaHierarchyModal) {
+        return;
+    }
+
+    areaHierarchyModal.querySelectorAll("[data-area-dept-id]").forEach(function (item) {
+        item.addEventListener("click", function () {
+            areaDeptId.value = this.getAttribute("data-area-dept-id") || "";
+            areaSelectorButton.textContent = this.getAttribute("data-area-name") || "Todas";
+            form.submit();
+        });
+    });
+
+    if (clearAreaButton) {
+        clearAreaButton.addEventListener("click", function () {
+            areaDeptId.value = "";
+            form.submit();
+        });
+    }
+});
+</script>
 
 @functions {
     private static string GetAttendanceCellClass(AttendanceReportRowViewModel item, string state)

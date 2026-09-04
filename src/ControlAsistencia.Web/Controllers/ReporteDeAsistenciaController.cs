@@ -24,7 +24,7 @@ public class ReporteDeAsistenciaController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado, int page = 1)
+    public async Task<IActionResult> Index(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado, int page = 1)
     {
         try
         {
@@ -34,6 +34,7 @@ public class ReporteDeAsistenciaController : Controller
                 FechaHasta = fechaHasta,
                 Persona = persona,
                 Area = area,
+                AreaDeptId = areaDeptId,
                 Estado = estado,
                 PageNumber = page,
                 PageSize = PageSize
@@ -49,6 +50,7 @@ public class ReporteDeAsistenciaController : Controller
                 FechaHasta = fechaHasta,
                 Persona = persona,
                 Area = area,
+                AreaDeptId = areaDeptId,
                 Estado = estado,
                 PageNumber = page,
                 PageSize = PageSize
@@ -64,7 +66,7 @@ public class ReporteDeAsistenciaController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> ExportarExcel(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado)
+    public async Task<IActionResult> ExportarExcel(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
     {
         var report = await _service.GetReportAsync(new AttendanceReportRequest
         {
@@ -72,6 +74,7 @@ public class ReporteDeAsistenciaController : Controller
             FechaHasta = fechaHasta,
             Persona = persona,
             Area = area,
+            AreaDeptId = areaDeptId,
             Estado = estado,
             PageNumber = 1,
             PageSize = int.MaxValue
@@ -151,7 +154,7 @@ public class ReporteDeAsistenciaController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> EmitirReporte(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, string? estado)
+    public async Task<IActionResult> EmitirReporte(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
     {
         var report = await _service.GetReportAsync(new AttendanceReportRequest
         {
@@ -159,6 +162,7 @@ public class ReporteDeAsistenciaController : Controller
             FechaHasta = fechaHasta,
             Persona = persona,
             Area = area,
+            AreaDeptId = areaDeptId,
             Estado = estado,
             PageNumber = 1,
             PageSize = int.MaxValue

@@ -36,7 +36,7 @@ public static class IntegrationValidationRunner
             : $"INTEGRATION | AttendancePersonProvider | PASS | PersonId={person.PersonId} Badge={person.PersonCode}");
 
         var parameters = await parameterProvider.GetParametersAsync();
-        Console.WriteLine($"INTEGRATION | AttendanceParameterProvider | PASS | NoInAbsent={parameters.NoInAbsent} Weekends={parameters.Weekends}");
+        Console.WriteLine($"INTEGRATION | AttendanceParameterProvider | PASS | NoInAbsent={parameters.NoInAbsent} WeekendsRaw={parameters.WeekendsRaw}");
 
         var dates = new[]
         {
@@ -45,30 +45,18 @@ public static class IntegrationValidationRunner
             DateOnly.FromDateTime(DateTime.Today)
         };
 
-        var executed = false;
-        foreach (var date in dates)
+        var from = new DateTime(2026, 8, 20);
+        var to = new DateTime(2026, 8, 22);
+        var context = await contextBuilder.BuildAsync(1, from, to);
+        if (context is null)
         {
-            var marks = await markProvider.GetMarksAsync(1, date);
-            var schedule = await scheduleProvider.GetScheduleAsync(1, date);
-            var holiday = await holidayProvider.GetHolidayAsync(date);
-            var exceptions = await exceptionProvider.GetExceptionsAsync(1, date);
-
-            Console.WriteLine($"INTEGRATION | AttendanceMarkProvider | PASS | Date={date:yyyy-MM-dd} Marks={marks.Count}");
-            Console.WriteLine($"INTEGRATION | AttendanceScheduleProvider | PASS | Date={date:yyyy-MM-dd} HasSchedule={(schedule?.HasSchedule ?? false)}");
-            Console.WriteLine($"INTEGRATION | AttendanceHolidayProvider | PASS | Date={date:yyyy-MM-dd} IsHoliday={holiday.IsHoliday}");
-            Console.WriteLine($"INTEGRATION | AttendanceExceptionProvider | PASS | Date={date:yyyy-MM-dd} Exceptions={exceptions.Count}");
-
-            var context = await contextBuilder.BuildAsync(1, date);
-            if (context is null)
-            {
-                Console.WriteLine($"INTEGRATION | AttendanceCalculationContextBuilder | BLOCKED | DATA NOT AVAILABLE | Date={date:yyyy-MM-dd}");
-                continue;
-            }
-
-            Console.WriteLine($"INTEGRATION | AttendanceCalculationContextBuilder | PASS | Date={date:yyyy-MM-dd} Marks={context.Marks.Count} NextDayMarks={context.NextDayMarks.Count}");
-
-            var result = engine.Calculate(context);
-            Console.WriteLine($"INTEGRATION | AttendanceCalculationEngine | PASS | Date={date:yyyy-MM-dd} Entry={result.EntryMark?.Timestamp:yyyy-MM-dd HH:mm} Exit={result.ExitMark?.Timestamp:yyyy-MM-dd HH:mm} Absent={result.IsAbsent}");
+            Console.WriteLine("INTEGRATION | AttendanceCalculationContextBuilder | BLOCKED | DATA NOT AVAILABLE");
+        }
+        else
+        {
+            Console.WriteLine($"INTEGRATION | AttendanceCalculationContextBuilder | PASS | Days={context.Days.Count}");
+            var calculation = engine.Calculate(context);
+            Console.WriteLine($"INTEGRATION | AttendanceCalculationEngine | PASS | DaysReturned={calculation.Days.Count}");
             executed = true;
         }
 

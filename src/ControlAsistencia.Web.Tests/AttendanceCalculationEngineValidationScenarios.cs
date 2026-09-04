@@ -27,13 +27,20 @@ public static class AttendanceCalculationEngineValidationScenarios
             ("VAL-016 varias marcas válidas entrada", EarliestValidEntry_IsSelected),
             ("VAL-017 ninguna marca válida entrada", NoValidEntry_UsesNoInRule),
             ("VAL-018 marca exactamente CheckInTime1", EntryAtWindowStart_IsValid),
-            ("VAL-019 marca exactamente CheckInTime2", EntryAtWindowEnd_IsValid),
+            ("VAL-019 marca exactamente CheckInTime2", EntryAtWindowEnd_IsIgnored),
             ("VAL-020 CheckOutTime1/2 válidos", ExplicitExitWindow_IsApplied),
             ("VAL-021 última marca válida salida", LastValidExitInWindow_IsSelected),
             ("VAL-022 varias marcas válidas salida", LatestValidExit_IsSelected),
             ("VAL-023 ninguna marca válida salida", NoValidExit_UsesNoOutRule),
             ("VAL-024 marca exactamente CheckOutTime1", ExitAtWindowStart_IsValid),
             ("VAL-025 marca exactamente CheckOutTime2", ExitAtWindowEnd_IsValid),
+            ("VAL-025A selección quirúrgica entrada límite inferior", ScheduledEntryAtLowerBound_IsSelected),
+            ("VAL-025B selección quirúrgica entrada límite superior", ScheduledEntryAtUpperBound_IsIgnored),
+            ("VAL-025C selección quirúrgica salida límite inferior", ScheduledExitAtLowerBound_IsSelected),
+            ("VAL-025D selección quirúrgica salida límite superior", ScheduledExitAtUpperBound_IsSelected),
+            ("VAL-025E selección quirúrgica varias marcas en ventana", ScheduledWindows_SelectFirstEntryAndLastExit),
+            ("VAL-025F selección quirúrgica marcas intermedias", ScheduledIntermediateMarks_ArePreservedAndIgnored),
+            ("VAL-025G selección quirúrgica amanecida", OvernightWindowSelection_UsesNormalizedBounds),
             ("VAL-026 sin ventanas propias", DefaultWindows_AreUsed),
             ("VAL-027 entrada dentro ventana default", DefaultEntryWindow_UsesValidMark),
             ("VAL-028 salida dentro ventana default", DefaultExitWindow_UsesValidMark),
@@ -61,6 +68,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             ("VAL-050 salida temprana parcialmente justificada", EarlyPartiallyJustified_IsReduced),
             ("VAL-051 horas efectivas día normal", EffectiveDuration_NormalDay),
             ("VAL-052 horario HR", HrPrefix_DeductsSixMinutes),
+            ("VAL-052B horario HV", HvPrefix_DeductsFortyFiveMinutes),
             ("VAL-053 horario HN", HnPrefix_DeductsNinetyMinutes),
             ("VAL-054 horario sin prefijo especial", DefaultPrefix_NoDeduction),
             ("VAL-055 duración cero", ZeroDuration_ReturnsZero),
@@ -80,7 +88,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             ("VAL-069 fin de semana con turno + tardanza", WeekendScheduled_WithLate),
             ("VAL-070 fin de semana con turno + salida temprana", WeekendScheduled_WithEarlyExit),
             ("VAL-071 WeekenFullDayOT=0", WeekendFullDayOtDisabled_LeavesOtZero),
-            ("VAL-072 WeekenFullDayOT=1", WeekendFullDayOtEnabled_CopiesEffective),
+            ("VAL-072 WeekenFullDayOT=1", WeekendFullDayOtEnabled_OnlyUsesConfiguredOt),
             ("VAL-073 feriado con turno", HolidayWithSchedule_BaseCase),
             ("VAL-074 feriado sin turno", HolidayNoSchedule_BaseCase),
             ("VAL-075 feriado sin AllowHolidayOT", HolidayWithoutHolidayOt_HasZeroOt),
@@ -89,7 +97,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             ("VAL-078 feriado + fin de semana", HolidayTakesPriorityOverWeekendNoSchedule),
             ("VAL-079 feriado + excepción", HolidayWithException_RemainsConsistent),
             ("VAL-080 sin turno + ShowNoTurn", NoSchedule_ShowNoTurn_ExposesDurations),
-            ("VAL-081 sin turno + !ShowNoTurn", NoSchedule_WithoutShowNoTurn_HasNoOt),
+            ("VAL-081 sin turno + !ShowNoTurn", NoSchedule_WithoutShowNoTurn_StillProcessesDay),
             ("VAL-082 sin turno + AllowNoTurnOT", NoSchedule_AllowNoTurnOt_CopiesDuration),
             ("VAL-083 sin turno + !AllowNoTurnOT", NoSchedule_DisallowNoTurnOt_ZeroOt),
             ("VAL-084 sin turno + límite OT", NoScheduleOt_RespectsLimit),
@@ -116,13 +124,13 @@ public static class AttendanceCalculationEngineValidationScenarios
             ("VAL-105 AllowEarlyOT=false", EarlyOtDisabled_ZeroOt),
             ("VAL-106 AllowEarlyOT=true", EarlyOtEnabled_CalculatesOt),
             ("VAL-107 intervalo mínimo early", EarlyOt_RequiresMinimumInterval),
-            ("VAL-108 intervalo alternativo early", EarlyOt_UsesAlternateInterval),
+            ("VAL-108 intervalo alternativo early", EarlyOt_CalculatesOt),
             ("VAL-109 límite EarlyMaxOT", EarlyOt_RespectsLimit),
             ("VAL-110 exceso EarlyMaxOT", EarlyOt_ClampsToLimit),
             ("VAL-111 AllowAfterOT=false", AfterOtDisabled_ZeroOt),
             ("VAL-112 AllowAfterOT=true", AfterOtEnabled_CalculatesOt),
             ("VAL-113 intervalo mínimo after", AfterOt_RequiresMinimumInterval),
-            ("VAL-114 intervalo alternativo after", AfterOt_UsesAlternateInterval),
+            ("VAL-114 intervalo alternativo after", AfterOt_CalculatesOt),
             ("VAL-115 límite AfterMaxOT", AfterOt_RespectsLimit),
             ("VAL-116 exceso AfterMaxOT", AfterOt_ClampsToLimit),
             ("VAL-117 fin de semana + turno + tardanza", WeekendScheduled_LateStillCalculatesLate),
@@ -171,24 +179,56 @@ public static class AttendanceCalculationEngineValidationScenarios
     private static void TwoMarks_ScheduledDay() => AssertScheduled(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0)), false, TimeSpan.FromHours(10));
     private static void ThreeMarks_PreservesIntermediate() => AssertIntermediateCount(1, CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0), [Mark(new DateTime(2026, 8, 20, 12, 0, 0))]));
     private static void MultipleMarks_PreservesIntermediate() => AssertIntermediateCount(2, CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0), [Mark(new DateTime(2026, 8, 20, 10, 0, 0)), Mark(new DateTime(2026, 8, 20, 14, 0, 0))]));
-    private static void MarksOutsideWindow_AreIgnored() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 5, 0, 0)), Mark(new DateTime(2026, 8, 20, 22, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10), noInAbsent: 2, noOutAbsent: 2), true);
-    private static void MarksInsideWindow_AreUsed() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0));
-    private static void MarksOnWindowBoundaries_AreValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 50, 0)), Mark(new DateTime(2026, 8, 20, 18, 10, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 7, 50, 0), new DateTime(2026, 8, 20, 18, 10, 0));
-    private static void MarkJustBeforeWindow_IsIgnored() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 49, 0)), Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0));
-    private static void MarkJustAfterWindow_IsIgnored() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 11, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10), noOutAbsent: 2), true);
+    private static void MarksOutsideWindow_AreIgnored() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 5, 0, 0)), Mark(new DateTime(2026, 8, 20, 22, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), noInAbsent: 2, noOutAbsent: 2), true);
+    private static void MarksInsideWindow_AreUsed() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void MarksOnWindowBoundaries_AreValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 50, 0)), Mark(new DateTime(2026, 8, 20, 18, 10, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 7, 50, 0), new DateTime(2026, 8, 20, 18, 10, 0));
+    private static void MarkJustBeforeWindow_IsIgnored() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 49, 0)), Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void MarkJustAfterWindow_IsIgnored() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 11, 0)), Mark(new DateTime(2026, 8, 20, 18, 10, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 10, 0));
     private static void ExplicitEntryWindow_IsApplied() => MarksInsideWindow_AreUsed();
-    private static void FirstValidEntryInWindow_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 55, 0)), Mark(new DateTime(2026, 8, 20, 8, 5, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 7, 55, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void FirstValidEntryInWindow_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 55, 0)), Mark(new DateTime(2026, 8, 20, 8, 5, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 7, 55, 0), new DateTime(2026, 8, 20, 18, 0, 0));
     private static void EarliestValidEntry_IsSelected() => FirstValidEntryInWindow_IsSelected();
-    private static void NoValidEntry_UsesNoInRule() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10), noInAbsent: 0), false, TimeSpan.FromHours(10));
-    private static void EntryAtWindowStart_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 50, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 7, 50, 0), new DateTime(2026, 8, 20, 18, 0, 0));
-    private static void EntryAtWindowEnd_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 10, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 8, 10, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void NoValidEntry_UsesNoInRule() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), noInAbsent: 0), false, TimeSpan.FromHours(10));
+    private static void EntryAtWindowStart_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 50, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 7, 50, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void EntryAtWindowEnd_IsIgnored() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 10, 0)), Mark(new DateTime(2026, 8, 20, 8, 9, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 9, 0), new DateTime(2026, 8, 20, 18, 0, 0));
     private static void ExplicitExitWindow_IsApplied() => MarksInsideWindow_AreUsed();
-    private static void LastValidExitInWindow_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 17, 55, 0)), Mark(new DateTime(2026, 8, 20, 18, 5, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 5, 0));
+    private static void LastValidExitInWindow_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 17, 55, 0)), Mark(new DateTime(2026, 8, 20, 18, 5, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 5, 0));
     private static void LatestValidExit_IsSelected() => LastValidExitInWindow_IsSelected();
-    private static void NoValidExit_UsesNoOutRule() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10), noOutAbsent: 0), false, TimeSpan.FromHours(10));
-    private static void ExitAtWindowStart_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 17, 50, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 17, 50, 0));
-    private static void ExitAtWindowEnd_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 10, 0))], new TimeOnly(7, 50), new TimeOnly(8, 10), new TimeOnly(17, 50), new TimeOnly(18, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 10, 0));
-    private static void DefaultWindows_AreUsed() => AssertScheduled(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 6, 30, 0), new DateTime(2026, 8, 20, 21, 30, 0)), false, TimeSpan.FromHours(15));
+    private static void NoValidExit_UsesNoOutRule() => AssertScheduled(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), noOutAbsent: 0), false, TimeSpan.FromHours(10));
+    private static void ExitAtWindowStart_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 17, 50, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 17, 50, 0));
+    private static void ExitAtWindowEnd_IsValid() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 10, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 10, 0));
+    private static void ScheduledEntryAtLowerBound_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 50, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 30), new TimeOnly(0, 30)), new DateTime(2026, 8, 20, 7, 50, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void ScheduledEntryAtUpperBound_IsIgnored() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 10, 0)), Mark(new DateTime(2026, 8, 20, 8, 9, 0)), Mark(new DateTime(2026, 8, 20, 18, 0, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 30), new TimeOnly(0, 30)), new DateTime(2026, 8, 20, 8, 9, 0), new DateTime(2026, 8, 20, 18, 0, 0));
+    private static void ScheduledExitAtLowerBound_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 17, 30, 0))], new TimeOnly(0, 30), new TimeOnly(0, 30), new TimeOnly(0, 30), new TimeOnly(0, 30)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 17, 30, 0));
+    private static void ScheduledExitAtUpperBound_IsSelected() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 18, 30, 0))], new TimeOnly(0, 30), new TimeOnly(0, 30), new TimeOnly(0, 30), new TimeOnly(0, 30)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 18, 30, 0));
+    private static void ScheduledWindows_SelectFirstEntryAndLastExit() => AssertEntryExit(CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026, 8, 20, 7, 50, 0)), Mark(new DateTime(2026, 8, 20, 8, 0, 0)), Mark(new DateTime(2026, 8, 20, 17, 50, 0)), Mark(new DateTime(2026, 8, 20, 18, 10, 0))], new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)), new DateTime(2026, 8, 20, 7, 50, 0), new DateTime(2026, 8, 20, 18, 10, 0));
+    private static void ScheduledIntermediateMarks_ArePreservedAndIgnored()
+    {
+        var result = CreateEngine().Calculate(CreateContextWithWindows(new DateOnly(2026, 8, 20), [
+            Mark(new DateTime(2026, 8, 20, 7, 55, 0)),
+            Mark(new DateTime(2026, 8, 20, 10, 0, 0)),
+            Mark(new DateTime(2026, 8, 20, 13, 0, 0)),
+            Mark(new DateTime(2026, 8, 20, 18, 5, 0))],
+            new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10), new TimeOnly(0, 10)));
+        Assert(result.EntryMark?.Timestamp == new DateTime(2026, 8, 20, 7, 55, 0), "La entrada debe ser la primera marca válida.");
+        Assert(result.ExitMark?.Timestamp == new DateTime(2026, 8, 20, 18, 5, 0), "La salida debe ser la última marca válida.");
+        Assert(result.IntermediateMarks.Count == 2, "Las marcas no seleccionadas deben quedar como intermedias.");
+        Assert(result.IntermediateMarks[0].Timestamp == new DateTime(2026, 8, 20, 10, 0, 0), "Primera intermedia inesperada.");
+        Assert(result.IntermediateMarks[1].Timestamp == new DateTime(2026, 8, 20, 13, 0, 0), "Segunda intermedia inesperada.");
+    }
+    private static void OvernightWindowSelection_UsesNormalizedBounds()
+    {
+        var context = CreateOvernightContext(new DateTime(2026, 8, 20, 21, 50, 0), new DateTime(2026, 8, 21, 7, 10, 0));
+        context.Marks = [
+            Mark(new DateTime(2026, 8, 20, 21, 50, 0)),
+            Mark(new DateTime(2026, 8, 20, 22, 0, 0)),
+            Mark(new DateTime(2026, 8, 21, 2, 0, 0)),
+            Mark(new DateTime(2026, 8, 21, 7, 10, 0))];
+        var result = CreateEngine().CalculateDay(context);
+        Assert(result.EntryMark?.Timestamp == new DateTime(2026, 8, 20, 22, 0, 0), "En amanecida debe tomar la primera entrada válida normalizada.");
+        Assert(result.ExitMark?.Timestamp == new DateTime(2026, 8, 21, 7, 10, 0), "En amanecida debe tomar la última salida válida normalizada.");
+        Assert(result.IntermediateMarks.Count == 2, "Las marcas restantes de amanecida deben quedar como intermedias.");
+    }
+    private static void DefaultWindows_AreUsed() => AssertScheduled(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 6, 30, 0), new DateTime(2026, 8, 20, 21, 30, 0)), false, TimeSpan.FromHours(10));
     private static void DefaultEntryWindow_UsesValidMark() => AssertEntryExit(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 6, 30, 0), new DateTime(2026, 8, 20, 18, 0, 0)), new DateTime(2026, 8, 20, 6, 30, 0), new DateTime(2026, 8, 20, 18, 0, 0));
     private static void DefaultExitWindow_UsesValidMark() => AssertEntryExit(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 21, 30, 0)), new DateTime(2026, 8, 20, 8, 0, 0), new DateTime(2026, 8, 20, 21, 30, 0));
     private static void DefaultWindows_IgnoreInvalidMarks() => MarksOutsideWindow_AreIgnored();
@@ -203,21 +243,22 @@ public static class AttendanceCalculationEngineValidationScenarios
     private static void MissingExit_WithEntry_UsesRule() => NoOutAbsent0_UsesScheduledEnd();
     private static void ExactSchedule_HasNoLateOrEarly() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0))); Assert(r.LateEntryDuration is null && r.EarlyExitDuration is null, "No debe haber tardanza ni salida temprana."); }
     private static void EntryWithinTolerance_HasNoLate() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,9,0), new DateTime(2026,8,20,18,0,0))); Assert(r.LateEntryDuration is null, "Debe estar dentro de tolerancia."); }
-    private static void EntryOutsideTolerance_HasLate() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,11,0), new DateTime(2026,8,20,18,0,0))); Assert(r.LateEntryDuration == TimeSpan.FromMinutes(1), "Debe tardar 1 minuto."); }
+    private static void EntryOutsideTolerance_HasLate() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,11,0), new DateTime(2026,8,20,18,0,0))); Assert(r.LateEntryDuration == TimeSpan.FromMinutes(11), "Debe tardar 11 minutos."); }
     private static void LateOverAbsenceThreshold_MarksAbsent() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,9,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.LateAbsent = true; c.Parameters.MinsLateAbsent = 38; Assert(CreateEngine().Calculate(c).IsAbsent, "Debe marcar ausencia por tardanza excesiva."); }
     private static void LateFullyJustified_IsRemoved() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,30,0), new DateTime(2026,8,20,18,0,0)); c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,8,30,0))]; Assert(CreateEngine().Calculate(c).LateEntryDuration is null, "Debe eliminar la tardanza."); }
-    private static void LatePartiallyJustified_IsReduced() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,30,0), new DateTime(2026,8,20,18,0,0)); c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,10,0), new DateTime(2026,8,20,8,20,0))]; Assert(CreateEngine().Calculate(c).LateEntryDuration == TimeSpan.FromMinutes(10), "La tardanza debe reducirse."); }
+    private static void LatePartiallyJustified_IsReduced() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,30,0), new DateTime(2026,8,20,18,0,0)); c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,10,0), new DateTime(2026,8,20,8,20,0))]; var r = CreateEngine().Calculate(c); Assert(r.LateEntryDuration == TimeSpan.FromMinutes(20), "La tardanza debe reducirse a 20 minutos."); Assert(r.JustifiedDuration == TimeSpan.FromMinutes(10), "La justificación parcial debe ser 10 minutos."); }
     private static void ExactExit_HasNoEarly() => ExactSchedule_HasNoLateOrEarly();
     private static void ExitWithinTolerance_HasNoEarly() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,51,0))); Assert(r.EarlyExitDuration is null, "Debe estar dentro de tolerancia de salida."); }
-    private static void ExitOutsideTolerance_HasEarly() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,40,0))); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(10), "Debe salir 10 min antes."); }
+    private static void ExitOutsideTolerance_HasEarly() { var r = CreateEngine().Calculate(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,40,0))); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(20), "Debe salir 20 min antes."); }
     private static void EarlyOverAbsenceThreshold_MarksAbsent() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,00,0)); c.Parameters.EarlyAbsent = true; c.Parameters.MinsEarlyAbsent = 42; Assert(CreateEngine().Calculate(c).IsAbsent, "Debe marcar ausencia por salida temprana excesiva."); }
     private static void EarlyFullyJustified_IsRemoved() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,30,0)); c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,17,30,0), new DateTime(2026,8,20,18,0,0))]; Assert(CreateEngine().Calculate(c).EarlyExitDuration is null, "Debe eliminar la salida temprana."); }
-    private static void EarlyPartiallyJustified_IsReduced() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,00,0)); c.Exceptions = [MinuteException(new DateTime(2026,8,20,17,00,0), new DateTime(2026,8,20,17,20,0), 20)]; var r = CreateEngine().Calculate(c); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(30), $"La salida temprana debe reducirse a 30 min. Actual={r.EarlyExitDuration}"); Assert(r.JustifiedDuration == TimeSpan.FromMinutes(20), $"JustifiedDuration esperada 20 min. Actual={r.JustifiedDuration}"); }
+    private static void EarlyPartiallyJustified_IsReduced() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,17,00,0)); c.Exceptions = [MinuteException(new DateTime(2026,8,20,17,00,0), new DateTime(2026,8,20,17,20,0), 20)]; var r = CreateEngine().Calculate(c); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(40), $"La salida temprana debe reducirse a 40 min. Actual={r.EarlyExitDuration}"); Assert(r.JustifiedDuration == TimeSpan.FromMinutes(20), $"JustifiedDuration esperada 20 min. Actual={r.JustifiedDuration}"); }
     private static void EffectiveDuration_NormalDay() => AssertScheduled(CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)), false, TimeSpan.FromHours(10));
-    private static void HrPrefix_DeductsSixMinutes() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)); c.Schedule!.ScheduleName = "HR-MANANA"; Assert(CreateEngine().Calculate(c).EffectiveWorkDuration == TimeSpan.FromMinutes(594), "Debe descontar 6 min."); }
-    private static void HnPrefix_DeductsNinetyMinutes() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)); c.Schedule!.ScheduleName = "HN-MANANA"; Assert(CreateEngine().Calculate(c).EffectiveWorkDuration == TimeSpan.FromMinutes(510), "Debe descontar 90 min."); }
+    private static void HrPrefix_DeductsSixMinutes() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)); c.Schedule!.ScheduleName = "HR-MANANA"; c.Schedule.BreakMinutes = 60; Assert(CreateEngine().Calculate(c).EffectiveWorkDuration == TimeSpan.FromMinutes(540), "Debe descontar 60 min."); }
+    private static void HvPrefix_DeductsFortyFiveMinutes() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)); c.Schedule!.ScheduleName = "HV-MANANA"; c.Schedule.BreakMinutes = 45; Assert(CreateEngine().Calculate(c).EffectiveWorkDuration == TimeSpan.FromMinutes(555), "Debe descontar 45 min."); }
+    private static void HnPrefix_DeductsNinetyMinutes() { var c = CreateScheduledContext(new DateOnly(2026, 8, 20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)); c.Schedule!.ScheduleName = "HN-MANANA"; c.Schedule.BreakMinutes = 90; Assert(CreateEngine().Calculate(c).EffectiveWorkDuration == TimeSpan.FromMinutes(510), "Debe descontar 90 min."); }
     private static void DefaultPrefix_NoDeduction() => EffectiveDuration_NormalDay();
-    private static void ZeroDuration_ReturnsZero() { var c = CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,8,0,0))], new TimeOnly(8, 0), new TimeOnly(8, 1), new TimeOnly(8, 0), new TimeOnly(8, 1)); var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.Zero, "Duración cero esperada."); }
+    private static void ZeroDuration_ReturnsZero() { var c = CreateContextWithWindows(new DateOnly(2026, 8, 20), [Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,8,0,0))], new TimeOnly(0, 0), new TimeOnly(0, 1), new TimeOnly(10, 0), new TimeOnly(10, 0)); var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.Zero, "Duración cero esperada."); }
     private static void PositiveDuration_IsCalculated() => EffectiveDuration_NormalDay();
     private static void OvernightDuration_IsCalculated() { var r = CreateEngine().Calculate(CreateOvernightContext(new DateTime(2026,8,20,22,0,0), new DateTime(2026,8,21,7,0,0))); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(9), "Duración amanecida esperada."); }
     private static void OvernightSchedule_BaseCase() => OvernightDuration_IsCalculated();
@@ -230,11 +271,11 @@ public static class AttendanceCalculationEngineValidationScenarios
     private static void WeekendNoSchedule_TwoMarks() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,23,8,0,0)), Mark(new DateTime(2026,8,23,18,0,0))], Array.Empty<AttendanceMark>()); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10) && r.PresenceDuration == TimeSpan.FromHours(10) && r.OvertimeDuration == TimeSpan.FromHours(10), "FDS sin turno debe copiar duración."); }
     private static void WeekendNoSchedule_SingleMark() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,23,8,0,0))], Array.Empty<AttendanceMark>()); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration is null && r.OvertimeDuration is null, "Con una sola marca no debe inventar duración."); }
     private static void WeekendNoSchedule_SingleMarkWithClosure() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,23,8,0,0))], [Mark(new DateTime(2026,8,24,18,0,0), "L")]); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.OvertimeDuration == TimeSpan.FromHours(34), "Debe usar la marca L siguiente."); }
-    private static void WeekendScheduled_BaseCase() => WeekendScheduled_WithOt();
-    private static void WeekendScheduled_WithLate() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,20,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.LateEntryDuration == TimeSpan.FromMinutes(10) && r.OvertimeDuration == r.EffectiveWorkDuration, "FDS con turno debe mantener tardanza y copiar HE."); }
-    private static void WeekendScheduled_WithEarlyExit() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,17,40,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(10) && r.OvertimeDuration == r.EffectiveWorkDuration, "FDS con turno debe mantener salida temprana y copiar HE."); }
+    private static void WeekendScheduled_BaseCase() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10) && r.PresenceDuration == TimeSpan.FromHours(10) && r.OvertimeDuration == TimeSpan.Zero, "Sec.03.06.04: con turno y sin HORAEXTRA_ENTRADA/SALIDA, HE debe quedar en 00:00."); }
+    private static void WeekendScheduled_WithLate() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,20,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.LateEntryDuration == TimeSpan.FromMinutes(20) && r.OvertimeDuration == TimeSpan.Zero, "Sec.03.06.04: la tardanza sigue siendo independiente y HE queda en 00:00 sin HORAEXTRA_ENTRADA/SALIDA."); }
+    private static void WeekendScheduled_WithEarlyExit() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,17,40,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(20) && r.OvertimeDuration == TimeSpan.Zero, "Sec.03.06.04: la salida temprana sigue siendo independiente y HE queda en 00:00 sin HORAEXTRA_ENTRADA/SALIDA."); }
     private static void WeekendFullDayOtDisabled_LeavesOtZero() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = false; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Sin WeekenFullDayOT no debe haber OT completa."); }
-    private static void WeekendFullDayOtEnabled_CopiesEffective() => WeekendScheduled_WithOt();
+    private static void WeekendFullDayOtEnabled_OnlyUsesConfiguredOt() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10), "Sec.03.06.02.04: debe conservar horas efectivas del turno."); Assert(r.OvertimeDuration == TimeSpan.Zero, "Sec.03.06.04: WeekenFullDayOT=1 no convierte la jornada completa en HE si HORAEXTRA_ENTRADA+HORAEXTRA_SALIDA=0."); }
     private static void HolidayWithSchedule_BaseCase() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0)); c.IsHoliday = true; c.Parameters.ShowHoliday = true; c.Parameters.AllowHolidayOT = true; var r = CreateEngine().Calculate(c); Assert(r.IsHoliday && r.IsHolidayWithSchedule, "Debe marcar feriado con turno."); }
     private static void HolidayNoSchedule_BaseCase() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,9,0,0)), Mark(new DateTime(2026,8,20,11,0,0))], Array.Empty<AttendanceMark>()); c.IsHoliday = true; c.Parameters.ShowHoliday = true; c.Parameters.AllowHolidayOT = true; var r = CreateEngine().Calculate(c); Assert(r.IsHoliday && r.IsHolidayWithoutSchedule, "Debe marcar feriado sin turno."); }
     private static void HolidayWithoutHolidayOt_HasZeroOt() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,9,0,0)), Mark(new DateTime(2026,8,20,11,0,0))], Array.Empty<AttendanceMark>()); c.IsHoliday = true; c.Parameters.ShowHoliday = true; c.Parameters.AllowHolidayOT = false; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Sin AllowHolidayOT no debe haber OT."); }
@@ -243,7 +284,10 @@ public static class AttendanceCalculationEngineValidationScenarios
     private static void HolidayTakesPriorityOverWeekendNoSchedule() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,23,9,0,0)), Mark(new DateTime(2026,8,23,12,0,0))], Array.Empty<AttendanceMark>()); c.IsHoliday = true; c.IsWeekend = true; c.Parameters.ShowHoliday = true; c.Parameters.AllowHolidayOT = true; c.Parameters.LimitHolidayOT = 60; var r = CreateEngine().Calculate(c); Assert(r.OvertimeDuration == TimeSpan.FromMinutes(60), "Feriado debe tener prioridad sobre fin de semana en OT sin turno."); }
     private static void HolidayWithException_RemainsConsistent() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,30,0), new DateTime(2026,8,20,18,0,0)); c.IsHoliday = true; c.Parameters.ShowHoliday = true; c.Parameters.AllowHolidayOT = true; c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,8,30,0))]; Assert(CreateEngine().Calculate(c).LateEntryDuration is null, "Excepción debe seguir justificando en feriado."); }
     private static void NoSchedule_ShowNoTurn_ExposesDurations() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,10,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.ShowNoTurn = true; Assert(CreateEngine().Calculate(c).EffectiveWorkDuration == TimeSpan.FromHours(2), "ShowNoTurn debe permitir el cálculo."); }
-    private static void NoSchedule_WithoutShowNoTurn_HasNoOt() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,10,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.ShowNoTurn = false; c.Parameters.AllowNoTurnOT = true; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Sin ShowNoTurn no debe haber OT no-turno."); }
+    private static void NoSchedule_WithoutShowNoTurn_StillProcessesDay() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,10,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.ShowNoTurn = false; c.Parameters.AllowNoTurnOT = true; var r = CreateEngine().Calculate(c); Assert(r.ProcessedBySection02 && r.EffectiveWorkDuration == TimeSpan.FromHours(2) && r.OvertimeDuration == TimeSpan.FromHours(2), "ShowNoTurn=0 no debe impedir procesar el día SIN TURNO ni su OT; SEC.05 decidirá visibilidad."); }
+    private static void HolidayNoSchedule_WithoutShowHoliday_StillProcessesDay() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,9,0,0)), Mark(new DateTime(2026,8,20,11,0,0))], Array.Empty<AttendanceMark>()); c.IsHoliday = true; c.Parameters.ShowHoliday = false; c.Parameters.AllowHolidayOT = true; var r = CreateEngine().Calculate(c); Assert(r.ProcessedBySection02 && r.IsHolidayWithoutSchedule && r.OvertimeDuration == TimeSpan.FromHours(2), "ShowHoliday=0 no debe impedir procesar feriado SIN TURNO."); }
+    private static void WeekendNoSchedule_WithoutShowWeekends_StillProcessesDay() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,23,8,0,0)), Mark(new DateTime(2026,8,23,18,0,0))], Array.Empty<AttendanceMark>()); c.IsWeekend = true; c.Parameters.ShowWeekends = false; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.ProcessedBySection02 && r.EffectiveWorkDuration == TimeSpan.FromHours(10) && r.OvertimeDuration == TimeSpan.FromHours(10), "ShowWeekends=0 no debe impedir procesar fin de semana SIN TURNO."); }
+    private static void NoSchedule_SingleMark_WithoutClosure_IgnoresOtFlags() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.AllowNoTurnOT = true; c.Parameters.LimitNoTurnOT = 999; var r = CreateEngine().Calculate(c); Assert(r.ProcessedBySection02 && r.EffectiveWorkDuration is null && r.PresenceDuration is null && r.OvertimeDuration is null, "Con una sola marca sin cierre no debe calcular horas ni OT aunque AllowNoTurnOT esté activo."); }
     private static void NoSchedule_AllowNoTurnOt_CopiesDuration() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,10,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.AllowNoTurnOT = true; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromHours(2), "AllowNoTurnOT debe copiar duración."); }
     private static void NoSchedule_DisallowNoTurnOt_ZeroOt() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,10,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.AllowNoTurnOT = false; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Sin AllowNoTurnOT no debe haber OT."); }
     private static void NoScheduleOt_RespectsLimit() { var c = CreateNoScheduleContext([Mark(new DateTime(2026,8,20,8,0,0)), Mark(new DateTime(2026,8,20,10,0,0))], Array.Empty<AttendanceMark>()); c.Parameters.AllowNoTurnOT = true; c.Parameters.LimitNoTurnOT = 50; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(50), "NoTurnOT debe respetar el límite."); }
@@ -266,45 +310,50 @@ public static class AttendanceCalculationEngineValidationScenarios
     private static void ClassifyZero_IsSelected() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,30,0), new DateTime(2026,8,20,18,0,0)); c.Exceptions = [new AttendanceException { PersonId = 1, LeaveId = 1, LeaveName = "X", Unit = 1, MinUnit = 1, Classify = 128, StartDateTime = new DateTime(2026,8,20,8,0,0), EndDateTime = new DateTime(2026,8,20,9,0,0) }, new AttendanceException { PersonId = 1, LeaveId = 2, LeaveName = "Y", Unit = 1, MinUnit = 1, Classify = 0, StartDateTime = new DateTime(2026,8,20,8,0,0), EndDateTime = new DateTime(2026,8,20,9,0,0) }]; Assert(CreateEngine().Calculate(c).Exception?.LeaveId == 2, "Classify=0 debe prevalecer."); }
     private static void NonZeroClassify_IsSelectedWhenOnlyOne() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,30,0), new DateTime(2026,8,20,18,0,0)); c.Exceptions = [new AttendanceException { PersonId = 1, LeaveId = 1, LeaveName = "X", Unit = 1, MinUnit = 1, Classify = 128, StartDateTime = new DateTime(2026,8,20,8,0,0), EndDateTime = new DateTime(2026,8,20,9,0,0) }]; Assert(CreateEngine().Calculate(c).Exception?.LeaveId == 1, "La única excepción debe seleccionarse."); }
     private static void ExceptionOutsideSchedule_DoesNotChangeDay() => ExceptionBeforeEntry_DoesNotChangeDurations();
-    private static void ExceptionEqualToSchedule_CoversWholeDay() { var c = CreateScheduledContext(new DateOnly(2026,8,20), null, null); c.Marks = Array.Empty<AttendanceMark>(); c.Exceptions = [FullDayException(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0))]; var r = CreateEngine().Calculate(c); Assert(!r.IsAbsent && r.JustifiedDuration.HasValue, "La excepción igual al horario debe cubrir todo el día."); }
+    private static void ExceptionEqualToSchedule_CoversWholeDay() { var c = CreateScheduledContext(new DateOnly(2026,8,20), null, null); c.Marks = Array.Empty<AttendanceMark>(); c.Exceptions = [FullDayException(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,0,0))]; var r = CreateEngine().Calculate(c); Assert(!r.IsAbsent, "La excepción igual al horario debe cubrir todo el día."); Assert(r.Accumulation?.DiasJustificados == 1, "Unit=3 debe incrementar días justificados."); }
     private static void EarlyOtDisabled_ZeroOt() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = false; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Sin AllowEarlyOT no debe haber HE temprana."); }
-    private static void EarlyOtEnabled_CalculatesOt() => EarlyOt_UsesAlternateInterval();
-    private static void EarlyOt_RequiresMinimumInterval() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,40,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.IntervalOfEarlyOT = 30; c.Parameters.IntervalOfEarlyOTAlternate = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Debe requerir intervalo mínimo."); }
-    private static void EarlyOt_UsesAlternateInterval() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.IntervalOfEarlyOT = 30; c.Parameters.IntervalOfEarlyOTAlternate = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(30), "Debe usar intervalo alternativo temprano."); }
+    private static void EarlyOtEnabled_CalculatesOt() => EarlyOt_CalculatesOt();
+    private static void EarlyOt_RequiresMinimumInterval() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,40,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.IntervalOfEarlyOT = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Debe requerir intervalo mínimo."); }
+    private static void EarlyOt_CalculatesOt() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.IntervalOfEarlyOT = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(60), "Debe calcular HE temprana con el intervalo configurado."); }
     private static void EarlyOt_RespectsLimit() => EarlyOt_ClampsToLimit();
-    private static void EarlyOt_ClampsToLimit() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,6,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.AllowAfterOT = false; c.Parameters.IntervalOfEarlyOT = 30; c.Parameters.IntervalOfEarlyOTAlternate = 0; c.Parameters.LimitEarlyMaxOT = true; c.Parameters.EarlyMaxOT = 69; var r = CreateEngine().Calculate(c); Assert(r.EntryMark?.Timestamp == new DateTime(2026,8,20,6,0,0), $"EntryMark esperada 06:00. Actual={r.EntryMark?.Timestamp}"); Assert(r.OvertimeDuration == TimeSpan.FromMinutes(69), $"Debe limitar HE temprana. Actual={r.OvertimeDuration}"); }
+    private static void EarlyOt_ClampsToLimit() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,6,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.AllowAfterOT = false; c.Parameters.IntervalOfEarlyOT = 30; c.Parameters.LimitEarlyMaxOT = true; c.Parameters.EarlyMaxOT = 69; var r = CreateEngine().Calculate(c); Assert(r.EntryMark?.Timestamp == new DateTime(2026,8,20,6,0,0), $"EntryMark esperada 06:00. Actual={r.EntryMark?.Timestamp}"); Assert(r.OvertimeDuration == TimeSpan.FromMinutes(69), $"Debe limitar HE temprana. Actual={r.OvertimeDuration}"); }
 
     private static void AfterOtDisabled_ZeroOt() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,19,0,0)); c.Parameters.AllowAfterOT = false; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Sin AllowAfterOT no debe haber HE salida."); }
-    private static void AfterOtEnabled_CalculatesOt() => AfterOt_UsesAlternateInterval();
-    private static void AfterOt_RequiresMinimumInterval() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,20,0)); c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfAfterOT = 30; c.Parameters.IntervalOfAfterOTAlternate = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Debe requerir intervalo mínimo de salida."); }
-    private static void AfterOt_UsesAlternateInterval() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,19,0,0)); c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfAfterOT = 30; c.Parameters.IntervalOfAfterOTAlternate = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(30), "Debe usar intervalo alternativo salida."); }
+    private static void AfterOtEnabled_CalculatesOt() => AfterOt_CalculatesOt();
+    private static void AfterOt_RequiresMinimumInterval() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,18,20,0)); c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfAfterOT = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.Zero, "Debe requerir intervalo mínimo de salida."); }
+    private static void AfterOt_CalculatesOt() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,19,0,0)); c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfAfterOT = 30; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(60), "Debe calcular HE de salida con el intervalo configurado."); }
     private static void AfterOt_RespectsLimit() => AfterOt_ClampsToLimit();
-    private static void AfterOt_ClampsToLimit() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,21,0,0)); c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfAfterOT = 30; c.Parameters.IntervalOfAfterOTAlternate = 0; c.Parameters.LimitAfterMaxOT = true; c.Parameters.AfterMaxOT = 72; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(72), "Debe limitar HE de salida."); }
+    private static void AfterOt_ClampsToLimit() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,21,0,0)); c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfAfterOT = 30; c.Parameters.LimitAfterMaxOT = true; c.Parameters.AfterMaxOT = 72; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(72), "Debe limitar HE de salida."); }
     private static void WeekendScheduled_LateStillCalculatesLate() => WeekendScheduled_WithLate();
     private static void WeekendScheduled_EarlyStillCalculatesEarly() => WeekendScheduled_WithEarlyExit();
-    private static void WeekendScheduled_WithOt() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10) && r.PresenceDuration == TimeSpan.FromHours(10) && r.OvertimeDuration == TimeSpan.FromHours(10), "FDS con turno debe copiar horas a HE."); }
+    private static void WeekendScheduled_BaseCase() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10), "VAL-068: TIEMPO_DE_TRABAJO debe quedar en 10:00."); Assert(r.OvertimeDuration == TimeSpan.FromHours(10), "VAL-068: WeekenFullDayOT=1 debe asignar HE igual a TIEMPO_DE_TRABAJO."); }
+    private static void WeekendScheduled_WithLate() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,11,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.LateEntryDuration == TimeSpan.FromMinutes(11), "VAL-069/117: la tardanza debe mantenerse independiente."); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(9) + TimeSpan.FromMinutes(49), "VAL-069/117: TIEMPO_DE_TRABAJO debe descontar tardanza."); Assert(r.OvertimeDuration == r.EffectiveWorkDuration, "VAL-069/117: HE debe seguir TIEMPO_DE_TRABAJO cuando WeekenFullDayOT=1."); }
+    private static void WeekendScheduled_WithEarlyExit() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,17,40,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EarlyExitDuration == TimeSpan.FromMinutes(20), "VAL-070/118: la salida temprana debe mantenerse independiente."); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(9) + TimeSpan.FromMinutes(40), "VAL-070/118: TIEMPO_DE_TRABAJO debe descontar salida temprana."); Assert(r.OvertimeDuration == r.EffectiveWorkDuration, "VAL-070/118: HE debe seguir TIEMPO_DE_TRABAJO cuando WeekenFullDayOT=1."); }
+    private static void WeekendFullDayOtDisabled_LeavesOtZero() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = false; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10), "VAL-071: TIEMPO_DE_TRABAJO debe calcularse normalmente."); Assert(r.OvertimeDuration == TimeSpan.Zero, "VAL-071: WeekenFullDayOT=0 debe dejar HE en 0."); }
+    private static void WeekendFullDayOtEnabled_OnlyUsesConfiguredOt() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(10), "VAL-072: TIEMPO_DE_TRABAJO debe quedar en 10:00."); Assert(r.OvertimeDuration == r.EffectiveWorkDuration, "VAL-072: WeekenFullDayOT=1 debe asignar HE igual a TIEMPO_DE_TRABAJO."); }
+    private static void WeekendScheduled_WithOt() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,7,0,0), new DateTime(2026,8,23,19,0,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = true; c.Parameters.AllowEarlyOT = true; c.Parameters.AllowAfterOT = true; c.Parameters.IntervalOfEarlyOT = 30; c.Parameters.IntervalOfAfterOT = 30; var r = CreateEngine().Calculate(c); Assert(r.EffectiveWorkDuration == TimeSpan.FromHours(12), "VAL-119: TIEMPO_DE_TRABAJO debe ser la jornada real final del FDS."); Assert(r.OvertimeDuration == r.EffectiveWorkDuration, "VAL-119: en FDS con turno y WeekenFullDayOT=1, HE no debe depender de EarlyOT+AfterOT sino del TIEMPO_DE_TRABAJO final."); }
     private static void WeekendNoSchedule_WithOt() => WeekendNoSchedule_TwoMarks();
     private static void HolidayScheduled_WithOt() => HolidayWithSchedule_BaseCase();
     private static void HolidayNoSchedule_WithOt() => HolidayOt_RespectsLimit();
     private static void HolidayWeekend_PriorityValidation() => HolidayTakesPriorityOverWeekendNoSchedule();
     private static void OvernightWeekend_IsCalculated() { var c = CreateOvernightContext(new DateTime(2026,8,23,22,0,0), new DateTime(2026,8,24,7,0,0)); c.IsWeekend = true; c.Parameters.WeekenFullDayOT = true; var r = CreateEngine().Calculate(c); Assert(r.OvertimeDuration == r.EffectiveWorkDuration, "Amanecida FDS debe copiar HE."); }
     private static void OvernightHoliday_IsCalculated() { var c = CreateOvernightContext(new DateTime(2026,8,20,22,0,0), new DateTime(2026,8,21,7,0,0)); c.IsHoliday = true; c.Parameters.ShowHoliday = true; c.Parameters.AllowHolidayOT = true; var r = CreateEngine().Calculate(c); Assert(r.OvertimeDuration.HasValue, "Amanecida feriado debe calcular OT."); }
-    private static void ExceptionWithOt_RemainsConsistent() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.IntervalOfEarlyOT = 30; c.Parameters.IntervalOfEarlyOTAlternate = 30; c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,8,30,0))]; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(30), "La excepción no debe alterar HE temprana fuera de su rango."); }
-    private static void ExceptionWithWeekend_RemainsConsistent() => WeekendScheduled_WithOt();
+    private static void ExceptionWithOt_RemainsConsistent() { var c = CreateScheduledContext(new DateOnly(2026,8,20), new DateTime(2026,8,20,7,0,0), new DateTime(2026,8,20,18,0,0)); c.Parameters.AllowEarlyOT = true; c.Parameters.IntervalOfEarlyOT = 30; c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,8,30,0))]; Assert(CreateEngine().Calculate(c).OvertimeDuration == TimeSpan.FromMinutes(60), "La excepción no debe alterar HE temprana fuera de su rango."); }
+    private static void ExceptionWithWeekend_RemainsConsistent() { var c = CreateScheduledContext(new DateOnly(2026,8,23), new DateTime(2026,8,23,8,30,0), new DateTime(2026,8,23,18,0,0)); c.IsWeekend = true; c.IsHoliday = false; c.Parameters.WeekenFullDayOT = true; c.Exceptions = [ExceptionRange(new DateTime(2026,8,23,8,0,0), new DateTime(2026,8,23,8,30,0))]; var r = CreateEngine().Calculate(c); Assert(r.LateEntryDuration is null, "VAL-127: la excepción debe eliminar la tardanza en FDS."); Assert(r.OvertimeDuration == r.EffectiveWorkDuration, "VAL-127: la HE de FDS debe seguir el TIEMPO_DE_TRABAJO final incluso con excepción."); }
     private static void ExceptionWithHoliday_RemainsConsistent() => HolidayWithException_RemainsConsistent();
     private static void AbsenceWithFullException_RemovesAbsence() => FullException_RemovesAbsence();
     private static void InconsistencyWithException_PreservesDefinedKind() { var c = CreateScheduledContext(new DateOnly(2026,8,20), null, new DateTime(2026,8,20,18,0,0)); c.Parameters.NoInAbsent = 2; c.Exceptions = [ExceptionRange(new DateTime(2026,8,20,8,0,0), new DateTime(2026,8,20,9,0,0))]; Assert(CreateEngine().Calculate(c).InconsistencyKind == AttendanceInconsistencyKind.MissingEntry, "La inconsistencia documentada debe preservarse."); }
 
     private static AttendanceCalculationEngine CreateEngine() => new();
 
-    private static AttendanceCalculationContext CreateScheduledContext(DateOnly calculationDate, DateTime? entry, DateTime? exit, IEnumerable<AttendanceMark>? intermediateMarks = null)
+    private static AttendanceCalculationDayContext CreateScheduledContext(DateOnly calculationDate, DateTime? entry, DateTime? exit, IEnumerable<AttendanceMark>? intermediateMarks = null)
     {
         var marks = new List<AttendanceMark>();
         if (entry.HasValue) marks.Add(Mark(entry.Value));
         if (intermediateMarks is not null) marks.AddRange(intermediateMarks);
         if (exit.HasValue) marks.Add(Mark(exit.Value));
 
-        return new AttendanceCalculationContext
+        return new AttendanceCalculationDayContext
         {
             PersonId = 1,
             PersonCode = "P001",
@@ -313,6 +362,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             {
                 HasSchedule = true,
                 ScheduleName = "HS-MANANA",
+                BreakMinutes = 0,
                 ScheduledStartTime = new TimeOnly(8, 0),
                 ScheduledEndTime = new TimeOnly(18, 0),
                 StartDayOffset = 1,
@@ -327,7 +377,7 @@ public static class AttendanceCalculationEngineValidationScenarios
         };
     }
 
-    private static AttendanceCalculationContext CreateContextWithWindows(DateOnly calculationDate, IReadOnlyList<AttendanceMark> marks, TimeOnly in1, TimeOnly in2, TimeOnly out1, TimeOnly out2, int noInAbsent = 0, int noOutAbsent = 0)
+    private static AttendanceCalculationDayContext CreateContextWithWindows(DateOnly calculationDate, IReadOnlyList<AttendanceMark> marks, TimeOnly in1, TimeOnly in2, TimeOnly out1, TimeOnly out2, int noInAbsent = 0, int noOutAbsent = 0)
     {
         var context = CreateScheduledContext(calculationDate, null, null);
         context.Marks = marks.OrderBy(x => x.Timestamp).ToList();
@@ -340,9 +390,9 @@ public static class AttendanceCalculationEngineValidationScenarios
         return context;
     }
 
-    private static AttendanceCalculationContext CreateNoScheduleContext(IReadOnlyList<AttendanceMark> marks, IReadOnlyList<AttendanceMark> nextDayMarks)
+    private static AttendanceCalculationDayContext CreateNoScheduleContext(IReadOnlyList<AttendanceMark> marks, IReadOnlyList<AttendanceMark> nextDayMarks)
     {
-        return new AttendanceCalculationContext
+        return new AttendanceCalculationDayContext
         {
             PersonId = 1,
             PersonCode = "P001",
@@ -356,9 +406,9 @@ public static class AttendanceCalculationEngineValidationScenarios
         };
     }
 
-    private static AttendanceCalculationContext CreateOvernightContext(DateTime entry, DateTime exit)
+    private static AttendanceCalculationDayContext CreateOvernightContext(DateTime entry, DateTime exit)
     {
-        return new AttendanceCalculationContext
+        return new AttendanceCalculationDayContext
         {
             PersonId = 1,
             PersonCode = "P001",
@@ -367,6 +417,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             {
                 HasSchedule = true,
                 ScheduleName = "HS-NOCHE",
+                BreakMinutes = 0,
                 ScheduledStartTime = new TimeOnly(22, 0),
                 ScheduledEndTime = new TimeOnly(7, 0),
                 StartDayOffset = 1,
@@ -389,9 +440,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             AllowAfterOT = false,
             AllowEarlyOT = false,
             IntervalOfAfterOT = 30,
-            IntervalOfAfterOTAlternate = 30,
             IntervalOfEarlyOT = 30,
-            IntervalOfEarlyOTAlternate = 30,
             LimitAfterMaxOT = false,
             AfterMaxOT = 72,
             LimitEarlyMaxOT = false,
@@ -411,7 +460,7 @@ public static class AttendanceCalculationEngineValidationScenarios
             AllowHolidayOT = true,
             LimitHolidayOT = 0,
             WeekenFullDayOT = true,
-            Weekends = 0
+            WeekendsRaw = string.Empty
         };
     }
 
@@ -468,9 +517,9 @@ public static class AttendanceCalculationEngineValidationScenarios
             EndDateTime = end
         };
 
-    private static void AssertScheduled(AttendanceCalculationContext context, bool expectedAbsent, TimeSpan? expectedEffective = null)
+    private static void AssertScheduled(AttendanceCalculationDayContext context, bool expectedAbsent, TimeSpan? expectedEffective = null)
     {
-        var result = CreateEngine().Calculate(context);
+        var result = CreateEngine().CalculateDay(context);
         Assert(result.IsAbsent == expectedAbsent, "Estado de ausencia inesperado.");
         if (expectedEffective.HasValue)
         {
@@ -478,24 +527,24 @@ public static class AttendanceCalculationEngineValidationScenarios
         }
     }
 
-    private static void AssertNoSchedule(AttendanceCalculationContext context, DateTime? expectedEntry, DateTime? expectedExit, TimeSpan? expectedDuration)
+    private static void AssertNoSchedule(AttendanceCalculationDayContext context, DateTime? expectedEntry, DateTime? expectedExit, TimeSpan? expectedDuration)
     {
-        var result = CreateEngine().Calculate(context);
+        var result = CreateEngine().CalculateDay(context);
         Assert(result.EntryMark?.Timestamp == expectedEntry, "EntryMark inesperada.");
         Assert(result.ExitMark?.Timestamp == expectedExit, "ExitMark inesperada.");
         Assert(result.EffectiveWorkDuration == expectedDuration, "Duración inesperada.");
     }
 
-    private static void AssertEntryExit(AttendanceCalculationContext context, DateTime expectedEntry, DateTime expectedExit)
+    private static void AssertEntryExit(AttendanceCalculationDayContext context, DateTime expectedEntry, DateTime expectedExit)
     {
-        var result = CreateEngine().Calculate(context);
+        var result = CreateEngine().CalculateDay(context);
         Assert(result.EntryMark?.Timestamp == expectedEntry, $"EntryMark inesperada: {result.EntryMark?.Timestamp}");
         Assert(result.ExitMark?.Timestamp == expectedExit, $"ExitMark inesperada: {result.ExitMark?.Timestamp}");
     }
 
-    private static void AssertIntermediateCount(int expectedCount, AttendanceCalculationContext context)
+    private static void AssertIntermediateCount(int expectedCount, AttendanceCalculationDayContext context)
     {
-        var result = CreateEngine().Calculate(context);
+        var result = CreateEngine().CalculateDay(context);
         Assert(result.IntermediateMarks.Count == expectedCount, $"Cantidad de marcas intermedias inesperada: {result.IntermediateMarks.Count}");
     }
 

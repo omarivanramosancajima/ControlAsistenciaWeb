@@ -1,0 +1,190 @@
+PASS | Caso 01: D¡a normal con dos marcas
+PASS | Caso 02: Entrada tard¡a
+PASS | Caso 03: Salida temprana
+PASS | Caso 04: Entrada faltante
+PASS | Caso 05: Salida faltante
+PASS | Caso 06: Entrada y salida faltantes
+PASS | Caso 07: Cero marcas
+PASS | Caso 08: NoInAbsent = 0
+PASS | Caso 09: NoInAbsent = 1
+PASS | Caso 10: NoInAbsent = 2
+PASS | Caso 11: NoOutAbsent = 0
+PASS | Caso 12: NoOutAbsent = 1
+PASS | Caso 13: NoOutAbsent = 2
+PASS | Caso 14: Sin turno + m£ltiples marcas
+PASS | Caso 15: Sin turno + una marca + L siguiente
+PASS | Caso 16: Sin turno + una marca sin L siguiente
+PASS | Caso 17: Turno con m£ltiples marcas
+PASS | Caso 18: Primera entrada dentro de ventana
+PASS | Caso 19: éltima salida dentro de ventana
+PASS | Caso 20: Marcas fuera de ventana
+PASS | Caso 21: Horario con ventanas propias
+PASS | Caso 22: Horario sin ventanas propias
+PASS | Caso 23: Amanecida
+PASS | Caso 24: Cruce de medianoche
+PASS | Caso 25: Feriado con turno
+PASS | Caso 26: Feriado sin turno
+PASS | Caso 27: Fin de semana con turno
+PASS | Caso 28: Fin de semana sin turno
+PASS | Caso 28B: Fin de semana con turno generalizado 09:00-17:00
+PASS | Caso 29: H.E. antes
+PASS | Caso 30: H.E. despu‚s
+PASS | Caso 31: L¡mite H.E.
+PASS | Caso 32: Excepci¢n completa
+PASS | Caso 33: Excepci¢n parcial
+PASS | Caso 34: Excepciones solapadas
+PASS | Caso 35: Classify=0
+PASS | Caso 36: Inconsistencia por entrada faltante
+PASS | Caso 37: Inconsistencia por salida faltante
+PASS | Caso 38: Inconsistencia por una marca sin L siguiente
+Resumen: 39/39 pruebas PASS
+PASS | VAL-001 cero marcas con turno
+PASS | VAL-002 cero marcas sin turno
+PASS | VAL-003 una marca sin turno
+PASS | VAL-004 una marca sin turno + L siguiente
+PASS | VAL-005 una marca sin turno + L posterior incorrecta
+PASS | VAL-006 dos marcas
+PASS | VAL-007 tres marcas
+PASS | VAL-008 m£ltiples marcas
+PASS | VAL-009 marcas fuera de ventana
+PASS | VAL-010 marcas dentro de ventana
+PASS | VAL-011 marcas en l¡mites exactos de ventana
+PASS | VAL-012 marca justo antes de ventana
+PASS | VAL-013 marca justo despu‚s de ventana
+PASS | VAL-014 CheckInTime1/2 v lidos
+PASS | VAL-015 primera marca v lida dentro de ventana
+PASS | VAL-016 varias marcas v lidas entrada
+PASS | VAL-017 ninguna marca v lida entrada
+PASS | VAL-018 marca exactamente CheckInTime1
+PASS | VAL-019 marca exactamente CheckInTime2
+PASS | VAL-020 CheckOutTime1/2 v lidos
+PASS | VAL-021 £ltima marca v lida salida
+PASS | VAL-022 varias marcas v lidas salida
+PASS | VAL-023 ninguna marca v lida salida
+PASS | VAL-024 marca exactamente CheckOutTime1
+PASS | VAL-025 marca exactamente CheckOutTime2
+PASS | VAL-026 sin ventanas propias
+PASS | VAL-027 entrada dentro ventana default
+PASS | VAL-028 salida dentro ventana default
+PASS | VAL-029 marcas fuera ventana default
+PASS | VAL-030 NoInAbsent=0
+PASS | VAL-031 NoInAbsent=1
+PASS | VAL-032 NoInAbsent=2
+PASS | VAL-033 NoOutAbsent=0
+PASS | VAL-034 NoOutAbsent=1
+PASS | VAL-035 NoOutAbsent=2
+PASS | VAL-036 entrada y salida faltantes
+PASS | VAL-037 entrada faltante + salida existente
+PASS | VAL-038 salida faltante + entrada existente
+PASS | VAL-039 exactamente a horario
+PASS | VAL-040 dentro de tolerancia entrada
+PASS | VAL-041 fuera de tolerancia entrada
+PASS | VAL-042 tardanza mayor al l¡mite de ausencia
+PASS | VAL-043 tardanza justificada completamente
+PASS | VAL-044 tardanza parcialmente justificada
+PASS | VAL-045 salida exacta
+PASS | VAL-046 salida dentro tolerancia
+PASS | VAL-047 salida fuera tolerancia
+PASS | VAL-048 salida temprana mayor al l¡mite
+PASS | VAL-049 salida temprana completamente justificada
+PASS | VAL-050 salida temprana parcialmente justificada
+PASS | VAL-051 horas efectivas d¡a normal
+PASS | VAL-052 horario HR
+PASS | VAL-053 horario HN
+PASS | VAL-054 horario sin prefijo especial
+PASS | VAL-055 duraci¢n cero
+PASS | VAL-056 duraci¢n positiva
+PASS | VAL-057 duraci¢n amanecida
+PASS | VAL-058 amanecida 22:00-07:00
+PASS | VAL-059 entrada antes de medianoche
+PASS | VAL-060 salida despu‚s de medianoche
+PASS | VAL-061 salida dentro ventana siguiente d¡a
+PASS | VAL-062 marcas incorrectas del d¡a siguiente
+PASS | VAL-063 l¡mites exactos amanecida
+PASS | VAL-064 fin de semana sin turno
+PASS | VAL-065 fin de semana sin turno + 2 marcas
+PASS | VAL-066 fin de semana sin turno + 1 marca
+PASS | VAL-067 fin de semana sin turno + L siguiente
+PASS | VAL-068 fin de semana con turno
+PASS | VAL-069 fin de semana con turno + tardanza
+PASS | VAL-070 fin de semana con turno + salida temprana
+PASS | VAL-071 WeekenFullDayOT=0
+PASS | VAL-072 WeekenFullDayOT=1
+PASS | VAL-073 feriado con turno
+PASS | VAL-074 feriado sin turno
+PASS | VAL-075 feriado sin AllowHolidayOT
+PASS | VAL-076 feriado con AllowHolidayOT
+PASS | VAL-077 l¡mite HolidayOT
+PASS | VAL-078 feriado + fin de semana
+PASS | VAL-079 feriado + excepci¢n
+PASS | VAL-080 sin turno + ShowNoTurn
+PASS | VAL-081 sin turno + !ShowNoTurn
+PASS | VAL-082 sin turno + AllowNoTurnOT
+PASS | VAL-083 sin turno + !AllowNoTurnOT
+PASS | VAL-084 sin turno + l¡mite OT
+PASS | VAL-085 sin turno + m£ltiples marcas
+PASS | VAL-086 sin turno + una marca
+PASS | VAL-087 sin turno + una marca + L siguiente
+PASS | VAL-088 sin turno + una marca sin L
+PASS | VAL-089 L v lida del d¡a siguiente
+PASS | VAL-090 L inexistente
+PASS | VAL-091 L del d¡a equivocado
+PASS | VAL-092 m£ltiples L
+PASS | VAL-093 L + otras marcas del d¡a siguiente
+PASS | VAL-094 excepci¢n completa
+PASS | VAL-095 excepci¢n parcial
+PASS | VAL-096 excepci¢n antes de entrada
+PASS | VAL-097 excepci¢n sobre tardanza
+PASS | VAL-098 excepci¢n sobre salida temprana
+PASS | VAL-099 excepci¢n sobre salida
+PASS | VAL-100 excepciones solapadas
+PASS | VAL-101 Classify=0
+PASS | VAL-102 Classify!=0
+PASS | VAL-103 excepci¢n fuera del horario
+PASS | VAL-104 excepci¢n exactamente igual al horario
+PASS | VAL-105 AllowEarlyOT=false
+PASS | VAL-106 AllowEarlyOT=true
+PASS | VAL-107 intervalo m¡nimo early
+PASS | VAL-108 intervalo alternativo early
+PASS | VAL-109 l¡mite EarlyMaxOT
+PASS | VAL-110 exceso EarlyMaxOT
+PASS | VAL-111 AllowAfterOT=false
+PASS | VAL-112 AllowAfterOT=true
+PASS | VAL-113 intervalo m¡nimo after
+PASS | VAL-114 intervalo alternativo after
+PASS | VAL-115 l¡mite AfterMaxOT
+PASS | VAL-116 exceso AfterMaxOT
+PASS | VAL-117 fin de semana + turno + tardanza
+PASS | VAL-118 fin de semana + turno + salida temprana
+PASS | VAL-119 fin de semana + turno + H.E.
+PASS | VAL-120 fin de semana + sin turno + H.E.
+PASS | VAL-121 feriado + turno + H.E.
+PASS | VAL-122 feriado + sin turno + H.E.
+PASS | VAL-123 feriado + fin de semana
+PASS | VAL-124 amanecida + fin de semana
+PASS | VAL-125 amanecida + feriado
+PASS | VAL-126 excepci¢n + H.E.
+PASS | VAL-127 excepci¢n + fin de semana
+PASS | VAL-128 excepci¢n + feriado
+PASS | VAL-129 falta + excepci¢n
+PASS | VAL-130 inconsistencia + excepci¢n
+Resumen validaci¢n exhaustiva: 130/130 pruebas PASS
+INTEGRATION | START | SQL READ-ONLY
+INTEGRATION | AttendancePersonProvider | BLOCKED | DATA NOT AVAILABLE
+INTEGRATION | AttendanceParameterProvider | PASS | NoInAbsent=0 Weekends=0
+INTEGRATION | AttendanceMarkProvider | PASS | Date=2026-08-20 Marks=0
+INTEGRATION | AttendanceScheduleProvider | PASS | Date=2026-08-20 HasSchedule=False
+INTEGRATION | AttendanceHolidayProvider | PASS | Date=2026-08-20 IsHoliday=False
+INTEGRATION | AttendanceExceptionProvider | PASS | Date=2026-08-20 Exceptions=0
+INTEGRATION | AttendanceCalculationContextBuilder | BLOCKED | DATA NOT AVAILABLE | Date=2026-08-20
+INTEGRATION | AttendanceMarkProvider | PASS | Date=2026-08-21 Marks=0
+INTEGRATION | AttendanceScheduleProvider | PASS | Date=2026-08-21 HasSchedule=False
+INTEGRATION | AttendanceHolidayProvider | PASS | Date=2026-08-21 IsHoliday=False
+INTEGRATION | AttendanceExceptionProvider | PASS | Date=2026-08-21 Exceptions=0
+INTEGRATION | AttendanceCalculationContextBuilder | BLOCKED | DATA NOT AVAILABLE | Date=2026-08-21
+INTEGRATION | AttendanceMarkProvider | PASS | Date=2026-08-21 Marks=0
+INTEGRATION | AttendanceScheduleProvider | PASS | Date=2026-08-21 HasSchedule=False
+INTEGRATION | AttendanceHolidayProvider | PASS | Date=2026-08-21 IsHoliday=False
+INTEGRATION | AttendanceExceptionProvider | PASS | Date=2026-08-21 Exceptions=0
+INTEGRATION | AttendanceCalculationContextBuilder | BLOCKED | DATA NOT AVAILABLE | Date=2026-08-21
+INTEGRATION | BLOCKED | DATA NOT AVAILABLE
