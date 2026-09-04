@@ -8,7 +8,18 @@
 <div class="card shadow-sm attendance-report-card">
     <div class="card-header attendance-report-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
         <div>
-            <h1 class="h4 mb-1">Reporte de Asistencia MTPE</h1>
+            @if (Model.Estado=="FALTAS")
+            {<h1 class="h4 mb-1">Reporte de Faltas</h1>}
+            else if (Model.Estado=="TARDANZAS")
+            {<h1 class="h4 mb-1">Reporte de Tardanzas</h1>}
+            else if (Model.Estado=="SALIDAS TEMPRANAS")
+            {<h1 class="h4 mb-1">Reporte de Salidas Tempranas</h1>}
+            else if (Model.Estado=="PERMISOS/JUSTIFICACIONES")
+            {<h1 class="h4 mb-1">Reporte de Permisos/Justificaciones</h1>}
+            else if (Model.Estado=="HORAS EXTRA")
+            {<h1 class="h4 mb-1">Reporte de Horas Extras</h1>}
+            else 
+            {<h1 class="h4 mb-1">Reporte de Asistencia MTPE</h1>}
         </div>
         @if (!hasValidationMessage)
         {
@@ -27,23 +38,6 @@
             <div class="col-md-6 col-lg-2">
                 <label class="form-label">Fecha Hasta</label>
                 <input type="date" name="fechaHasta" value="@Model.FechaHasta.ToString("yyyy-MM-dd")" class="form-control" />
-            </div>
-            <div class="col-md-6 col-lg-3">
-                <label class="form-label">Persona</label>
-                <select name="persona" class="form-select">
-                    <option value="">Todas</option>
-                    @foreach (var item in Model.PersonasDisponibles)
-                    {
-                        if (string.Equals(item, Model.Persona, StringComparison.OrdinalIgnoreCase))
-                        {
-                            <option value="@item" selected>@item</option>
-                        }
-                        else
-                        {
-                            <option value="@item">@item</option>
-                        }
-                    }
-                </select>
             </div>
             <div class="col-md-6 col-lg-2">
                 <label class="form-label">Área</label>
@@ -67,6 +61,24 @@
                     }
                 </div>
             </div>
+            <div class="col-md-6 col-lg-3">
+                <label class="form-label">Persona</label>
+                <select name="persona" class="form-select">
+                    <option value="">Todas</option>
+                    @foreach (var item in Model.PersonasDisponibles)
+                    {
+                        if (string.Equals(item, Model.Persona, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <option value="@item" selected>@item</option>
+                        }
+                        else
+                        {
+                            <option value="@item">@item</option>
+                        }
+                    }
+                </select>
+            </div>
+            <!--
             <div class="col-md-6 col-lg-2">
                 <label class="form-label">Estado</label>
                 <select name="estado" class="form-select">
@@ -84,11 +96,14 @@
                     }
                 </select>
             </div>
+            //-->
+            <input type="hidden" name="estado" value="@Model.Estado" >
             <div class="col-md-6 col-lg-1 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">Buscar</button>
             </div>
-            <div class="col-12 d-flex flex-wrap gap-2">
-                <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+            <!--col-12 d-flex flex-wrap gap-2//-->
+            <div class="col-md-6 col-lg-1 d-flex align-items-end">
+                <a asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-estado="@Model.Estado" class="btn btn-outline-secondary">Limpiar</a>
             </div>
         </form>
         <div class="modal fade" id="areaHierarchyModal" tabindex="-1" aria-labelledby="areaHierarchyModalLabel" aria-hidden="true">

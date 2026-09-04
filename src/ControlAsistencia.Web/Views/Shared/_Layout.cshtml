@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Control de Asistencia</title>
+    <meta name="theme-color" content="#d8895f" />
+    <meta name="application-name" content="Control Asistencia" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="~/manifest.webmanifest" />
+    <link rel="icon" type="image/x-icon" href="~/favicon.ico?v=2" />
+    <link rel="apple-touch-icon" href="~/pwa-icon-192.png?v=2" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/ControlAsistencia.Web.styles.css" asp-append-version="true" />
@@ -12,7 +19,10 @@
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Control Asistencia</a>
+                <a class="navbar-brand d-inline-flex align-items-center gap-2" asp-area="" asp-controller="Home" asp-action="Index">
+                    <img src="~/logo-control-asistencia.png" alt="Control Asistencia" class="brand-logo" asp-append-version="true" />
+                    <span>Control Asistencia</span>
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -88,13 +98,14 @@ s                                    <li><a class="dropdown-item" asp-area="" as
                                     <!--
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Visor-de-Asistencias" asp-action="Index">Visor de Asistencias</a></li>                                    
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Turnos-y-Horarios" asp-action="Index">Turnos y Horarios</a></li>
-                                    //-->
                                     <li><a class="dropdown-item" asp-area="" asp-controller="EntradasySalidas" asp-action="Index">Entradas y Salidas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index">Reporte de Asistencia</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeTardanzas" asp-action="Index">Reporte de Tardanzas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeSalidasTempranas" asp-action="Index">Reporte de Salidas Tempranas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeFaltas" asp-action="Index">Reporte de Faltas</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeInconsistencias" asp-action="Index">Reporte de Inconsistencias</a></li>
+                                    //-->
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")">Reporte de Asistencia MTPE</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-estado="TARDANZAS">Reporte de Tardanzas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-estado="SALIDAS TEMPRANAS">Reporte de Salidas Tempranas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-estado="FALTAS">Reporte de Faltas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-estado="PERMISOS/JUSTIFICACIONES">Reporte de Permisos/Justificaciones</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="ReportedeAsistencia" asp-action="Index" asp-route-fechaDesde="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@DateTime.Now.ToString("yyyy-MM-dd")" asp-route-estado="HORAS EXTRA">Reporte de Horas Extras</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="ResumendeAsistencia" asp-action="Index">Resumen de Asistencia</a></li>
                                     <!--
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Reporte-de-Marcas" asp-action="Index">Reporte de Marcas</a></li>
@@ -171,6 +182,15 @@ s                                    <li><a class="dropdown-item" asp-area="" as
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("/service-worker.js").catch(function () {
+                    // La aplicación continúa funcionando normalmente si el navegador no permite PWA.
+                });
+            });
+        }
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

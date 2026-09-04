@@ -145,7 +145,8 @@ WITH DepartmentTree AS
         D.DEPTNAME,
         D.SUPDEPTID,
         0 AS Level,
-        CAST('>' + CAST(D.DEPTID AS varchar(20)) + '>' AS varchar(max)) AS PathIds
+        CAST('>' + CAST(D.DEPTID AS varchar(20)) + '>' AS varchar(max)) AS PathIds,
+        CAST(ISNULL(D.DEPTNAME, '') AS varchar(max)) AS HierarchyName        
     FROM dbo.DEPARTMENTS D WITH (NOLOCK)
     WHERE D.SUPDEPTID = 0
 
@@ -156,7 +157,8 @@ WITH DepartmentTree AS
         C.DEPTNAME,
         C.SUPDEPTID,
         DT.Level + 1,
-        CAST(DT.PathIds + CAST(C.DEPTID AS varchar(20)) + '>' AS varchar(max)) AS PathIds
+        CAST(DT.PathIds + CAST(C.DEPTID AS varchar(20)) + '>' AS varchar(max)) AS PathIds,
+        CAST(DT.HierarchyName + ' > ' + ISNULL(C.DEPTNAME, '') AS varchar(max)) AS HierarchyName
     FROM DepartmentTree DT
     INNER JOIN dbo.DEPARTMENTS C WITH (NOLOCK)
         ON C.SUPDEPTID = DT.DEPTID
@@ -168,7 +170,7 @@ SELECT
     SUPDEPTID AS SupDeptId,
     Level
 FROM DepartmentTree
-ORDER BY DeptName
+ORDER BY HierarchyName 
 OPTION (MAXRECURSION 0);";
 
         try
