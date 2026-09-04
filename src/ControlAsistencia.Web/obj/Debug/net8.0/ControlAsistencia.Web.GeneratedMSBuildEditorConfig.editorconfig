@@ -18,6 +18,10 @@ build_property.GenerateRazorMetadataSourceChecksumAttributes =
 build_property.MSBuildProjectDirectory = D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web
 build_property._RazorSourceGeneratorDebug = 
 
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Areas/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXJlYXNcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Auth/Login.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXV0aFxMb2dpbi5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 

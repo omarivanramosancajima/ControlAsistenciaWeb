@@ -37,6 +37,7 @@ builder.Services.AddScoped<IJustificarEmpleadoRepository, JustificarEmpleadoRepo
 builder.Services.AddScoped<IMarcacionEmpleadoRepository, MarcacionEmpleadoRepository>();
 builder.Services.AddScoped<IReubicacionEmpleadoRepository, ReubicacionEmpleadoRepository>();
 builder.Services.AddScoped<IPlantillaPersonalRepository, PlantillaPersonalRepository>();
+builder.Services.AddScoped<IAreaRepository, AreaRepository>();
 
 
 var app = builder.Build();

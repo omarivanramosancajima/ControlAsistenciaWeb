@@ -1,0 +1,297 @@
+@model ControlAsistencia.Web.Models.AreaIndexViewModel
+@{
+    ViewData["Title"] = "Áreas";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h1 class="h4 mb-0">Áreas / Ubicaciones</h1>
+        <button type="button" class="btn btn-primary btn-sm" id="createAreaButton" disabled>
+            Nueva Área
+        </button>
+    </div>
+
+    <div class="card-body">
+        @Html.AntiForgeryToken()
+
+        <div id="areaMessage"></div>
+
+        <div class="card">
+            <div class="card-header">
+                Jerarquía de Áreas
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="areaTree">
+                    @if (Model.Areas.Count == 0)
+                    {
+                        <div class="text-muted text-center py-4">No existen áreas registradas.</div>
+                    }
+                    else
+                    {
+                        foreach (var area in Model.Areas)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action area-node"
+                                    data-dept-id="@area.DeptId"
+                                    data-dept-name="@area.DeptName"
+                                    data-sup-dept-id="@area.SupDeptId"
+                                    data-is-root="@area.IsRoot.ToString().ToLowerInvariant()"
+                                    data-has-children="@area.HasChildren.ToString().ToLowerInvariant()">
+                                <span>
+                                    @for (var level = 0; level < area.Level; level++)
+                                    {
+                                        <span class="ps-1"></span>
+                                    }
+                                    @if (area.Level > 0)
+                                    {
+                                        <span class="text-muted">└─ </span>
+                                    }
+                                    @area.DeptName
+                                </span>
+                            </button>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="small text-muted mt-3">
+            Seleccione un nodo para crear un hijo, editarlo o eliminarlo.
+            Los nodos raíz no pueden editarse ni eliminarse.
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="areaEditorModal" tabindex="-1" aria-labelledby="areaEditorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="areaEditorModalLabel">Nueva Área</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="areaEditorMessage" class="alert alert-danger d-none"></div>
+
+                <div class="mb-3" id="parentAreaContainer">
+                    <label class="form-label">Área padre</label>
+                    <input type="text" class="form-control" id="parentAreaName" readonly />
+                    <input type="hidden" id="parentAreaId" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="areaName">Nombre del área</label>
+                    <input type="text" class="form-control" id="areaName"
+                           maxlength="30" required />
+                    <div class="form-text">Máximo 30 caracteres.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveAreaButton">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="areaActionsModal" tabindex="-1" aria-labelledby="areaActionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="areaActionsModalLabel">Área seleccionada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Área:</strong> <span id="selectedAreaName"></span>
+                </div>
+                <div id="selectedAreaInfo" class="small text-muted"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="actionCreateChildButton">Crear área hija</button>
+                <button type="button" class="btn btn-secondary" id="actionEditButton">Editar nombre</button>
+                <button type="button" class="btn btn-danger" id="actionDeleteButton">Eliminar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+    const actionModal = new bootstrap.Modal(document.getElementById('areaActionsModal'));
+    const editorModal = new bootstrap.Modal(document.getElementById('areaEditorModal'));
+
+    let selected = null;
+    let editorMode = 'create';
+
+    document.querySelectorAll('.area-node').forEach(function (node) {
+        node.addEventListener('click', function () {
+            selected = {
+                id: Number(node.dataset.deptId),
+                name: node.dataset.deptName,
+                isRoot: node.dataset.isRoot === 'true',
+                hasChildren: node.dataset.hasChildren === 'true'
+            };
+
+            document.getElementById('selectedAreaName').textContent = selected.name;
+            document.getElementById('selectedAreaInfo').textContent =
+                selected.isRoot
+                    ? 'Nodo raíz: solo puede crear áreas hijas.'
+                    : 'Nodo hijo: puede crear, editar o eliminar según las validaciones del sistema.';
+
+            document.getElementById('actionEditButton').disabled = selected.isRoot;
+            document.getElementById('actionDeleteButton').disabled = selected.isRoot || selected.hasChildren;
+
+            actionModal.show();
+        });
+    });
+
+    document.getElementById('createAreaButton').addEventListener('click', function () {
+        if (!selected) return;
+        openCreate();
+    });
+
+    document.getElementById('actionCreateChildButton').addEventListener('click', function () {
+        actionModal.hide();
+        if (!selected) {
+            showMessage('Debe seleccionar un área padre.', true);
+            return;
+        }
+        openCreate();
+    });
+
+    document.getElementById('actionEditButton').addEventListener('click', function () {
+        if (!selected || selected.isRoot) return;
+        actionModal.hide();
+        openEdit();
+    });
+
+    document.getElementById('actionDeleteButton').addEventListener('click', async function () {
+        if (!selected || selected.isRoot || selected.hasChildren) return;
+
+        const confirmed = window.confirm(
+            '¿Está seguro de que desea eliminar el nodo de área "' + selected.name + '"?');
+        if (!confirmed) return;
+
+        const form = new URLSearchParams();
+        form.append('__RequestVerificationToken', token);
+        form.append('id', selected.id);
+
+        const response = await fetch('@Url.Action("Delete", "Areas")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: form
+        });
+
+        const data = await response.json();
+        actionModal.hide();
+        showMessage(data.message, !data.success);
+
+        if (data.success) {
+            setTimeout(function () { window.location.reload(); }, 500);
+        }
+    });
+
+    document.getElementById('saveAreaButton').addEventListener('click', async function () {
+        const message = document.getElementById('areaEditorMessage');
+        message.classList.add('d-none');
+
+        const name = document.getElementById('areaName').value.trim();
+        if (!name) {
+            message.textContent = 'Debe ingresar el nombre del área.';
+            message.classList.remove('d-none');
+            return;
+        }
+        if (name.length > 30) {
+            message.textContent = 'El nombre del área no puede superar los 30 caracteres.';
+            message.classList.remove('d-none');
+            return;
+        }
+
+        const form = new URLSearchParams();
+        form.append('__RequestVerificationToken', token);
+        form.append('deptName', name);
+
+        let url;
+        if (editorMode === 'create') {
+            const parentId = Number(document.getElementById('parentAreaId').value);
+            if (!parentId) {
+                message.textContent = 'Debe seleccionar un área padre.';
+                message.classList.remove('d-none');
+                return;
+            }
+            form.append('parentDeptId', parentId);
+            url = '@Url.Action("Create", "Areas")';
+        } else {
+            if (!selected || selected.isRoot) {
+                message.textContent = 'Debe seleccionar un nodo hijo editable.';
+                message.classList.remove('d-none');
+                return;
+            }
+            form.append('deptId', selected.id);
+            url = '@Url.Action("Edit", "Areas")';
+        }
+
+        this.disabled = true;
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: form
+            });
+            const data = await response.json();
+
+            if (!data.success) {
+                message.textContent = data.message;
+                message.classList.remove('d-none');
+                return;
+            }
+
+            editorModal.hide();
+            showMessage(data.message, false);
+            setTimeout(function () { window.location.reload(); }, 500);
+        } catch (error) {
+            message.textContent = 'No fue posible completar la operación.';
+            message.classList.remove('d-none');
+        } finally {
+            this.disabled = false;
+        }
+    });
+
+    function openCreate() {
+        if (!selected) {
+            showMessage('Debe seleccionar un área padre para crear.', true);
+            return;
+        }
+
+        editorMode = 'create';
+        document.getElementById('areaEditorModalLabel').textContent = 'Nueva Área';
+        document.getElementById('parentAreaContainer').classList.remove('d-none');
+        document.getElementById('parentAreaId').value = selected.id;
+        document.getElementById('parentAreaName').value = selected.name;
+        document.getElementById('areaName').value = '';
+        document.getElementById('areaEditorMessage').classList.add('d-none');
+        editorModal.show();
+    }
+
+    function openEdit() {
+        if (!selected || selected.isRoot) return;
+
+        editorMode = 'edit';
+        document.getElementById('areaEditorModalLabel').textContent = 'Editar Área';
+        document.getElementById('parentAreaContainer').classList.add('d-none');
+        document.getElementById('areaName').value = selected.name;
+        document.getElementById('areaEditorMessage').classList.add('d-none');
+        editorModal.show();
+    }
+
+    function showMessage(text, isError) {
+        const container = document.getElementById('areaMessage');
+        container.className = 'alert ' + (isError ? 'alert-danger' : 'alert-success');
+        container.textContent = text;
+    }
+})();
+</script>
+}
