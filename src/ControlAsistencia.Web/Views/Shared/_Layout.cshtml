@@ -144,7 +144,7 @@ s                                    <li><a class="dropdown-item" asp-area="" as
                                     @User.Identity?.Name
                                 </a>                                
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="CambiodeClaves" asp-action="Index">Cambio de Claves</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="CambioDeClave" asp-action="Index">Cambio de Claves</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Cerrar Sesión" asp-action="Index">
                                         <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
                                             @Html.AntiForgeryToken()

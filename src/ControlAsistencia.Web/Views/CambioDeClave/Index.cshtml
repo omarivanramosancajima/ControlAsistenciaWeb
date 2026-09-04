@@ -1,0 +1,136 @@
+@model ControlAsistencia.Web.Models.CambioDeClaveViewModel
+
+@{
+    ViewData["Title"] = "Cambio de clave";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h4 class="mb-0">Cambio de clave</h4>
+    </div>
+
+    <div class="card-body">
+        @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @Model.SuccessMessage
+            </div>
+        }
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+        }
+
+        @if (string.IsNullOrWhiteSpace(Model.SuccessMessage))
+        {
+            <form asp-action="Index" method="post" id="cambioClaveForm" autocomplete="off">
+                @Html.AntiForgeryToken()
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">DNI / número de identificación</label>
+                        <input type="text" class="form-control" value="@Model.BadgeNumber" readonly />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" value="@Model.Name" readonly />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="CurrentPassword" class="form-label">Password actual</label>
+                        <input asp-for="CurrentPassword"
+                               type="password"
+                               class="form-control"
+                               maxlength="50"
+                               autocomplete="current-password" />
+                        <span asp-validation-for="CurrentPassword" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="NewPassword" class="form-label">Nuevo password</label>
+                        <input asp-for="NewPassword"
+                               type="password"
+                               class="form-control"
+                               maxlength="15"
+                               minlength="5"
+                               pattern="[A-Za-z0-9]+"
+                               autocomplete="new-password" />
+                        <span asp-validation-for="NewPassword" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="ConfirmNewPassword" class="form-label">Repetición del nuevo password</label>
+                        <input asp-for="ConfirmNewPassword"
+                               type="password"
+                               class="form-control"
+                               maxlength="15"
+                               minlength="5"
+                               autocomplete="new-password" />
+                        <span asp-validation-for="ConfirmNewPassword" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary" id="btnGuardar">
+                        Guardar
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="btnCancelar">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (function () {
+            const success = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SuccessMessage ?? ""));
+            if (success) {
+                window.setTimeout(function () {
+                    window.location.href = '@Url.Action("Index", "Home")';
+                }, 2500);
+                return;
+            }
+
+            const form = document.getElementById('cambioClaveForm');
+            const btnGuardar = document.getElementById('btnGuardar');
+            const btnCancelar = document.getElementById('btnCancelar');
+
+            if (!form) {
+                return;
+            }
+
+            btnCancelar.addEventListener('click', function () {
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.location.href = '@Url.Action("Index", "Home")';
+                }
+            });
+
+            form.addEventListener('submit', function (event) {
+                const newPassword = document.getElementById('NewPassword');
+                const confirmPassword = document.getElementById('ConfirmNewPassword');
+
+                if (!form.checkValidity() ||
+                    !newPassword ||
+                    !confirmPassword ||
+                    newPassword.value !== confirmPassword.value) {
+                    event.preventDefault();
+                    form.classList.add('was-validated');
+                    return;
+                }
+
+                if (!window.confirm('¿Está seguro que desea cambiar su clave de acceso?')) {
+                    event.preventDefault();
+                }
+            });
+        })();
+    </script>
+}

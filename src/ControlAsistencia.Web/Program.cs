@@ -40,6 +40,8 @@ builder.Services.AddScoped<IPlantillaPersonalRepository, PlantillaPersonalReposi
 builder.Services.AddScoped<IAreaRepository, AreaRepository>();
 builder.Services.AddScoped<IAccesoAlSistemaRepository, AccesoAlSistemaRepository>();
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
+builder.Services.AddScoped<ICambioDeClaveRepository, CambioDeClaveRepository>();
+
 
 var app = builder.Build();
 
