@@ -1,0 +1,196 @@
+@model ControlAsistencia.Web.Models.AccesoAlSistemaNewViewModel
+@{
+    ViewData["Title"] = "Nuevo acceso";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h1 class="h4 mb-0">Nuevo acceso</h1>
+        <a asp-action="Index" class="btn btn-secondary btn-sm">Cancelar</a>
+    </div>
+    <div class="card-body">
+        @if (ViewBag.ErrorMessage is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header">Áreas / Ubicaciones</div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="departmentTree">
+                            @foreach (var department in Model.Departments)
+                            {
+                                <a asp-action="Nuevo" asp-route-deptId="@department.DeptId"
+                                   class="list-group-item list-group-item-action @(department.DeptId == Model.SelectedDeptId ? "active" : "")">
+                                    @for (var level = 0; level < department.Level; level++)
+                                    {
+                                        <span class="ps-1"></span>
+                                    }
+                                    @if (department.Level > 0)
+                                    {
+                                        <span>└─ </span>
+                                    }
+                                    @department.DeptName
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header">Personas sin acceso al sistema</div>
+                    <div class="card-body">
+                        @if (Model.Employees.Count == 0)
+                        {
+                            <div class="alert alert-info mb-0">
+                                No existen personas sin acceso en el área seleccionada.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th></th>
+                                            <th>Código</th>
+                                            <th>DNI</th>
+                                            <th>Nombre</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    @foreach (var employee in Model.Employees)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="radio" class="form-check-input employee-option"
+                                                       name="employeeOption"
+                                                       value="@employee.UserId"
+                                                       data-badge="@employee.BadgeNumber"
+                                                       data-ssn="@employee.Ssn"
+                                                       data-name="@employee.Name"
+                                                       data-department="@employee.DepartmentName"
+                                                       data-photo="@employee.PhotoBase64"
+                                                       @(Model.SelectedUserId == employee.UserId ? "checked" : "") />
+                                            </td>
+                                            <td>@employee.BadgeNumber</td>
+                                            <td>@employee.Ssn</td>
+                                            <td>@employee.Name</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <form asp-action="Crear" method="post" id="createAccessForm" class="mt-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="SelectedUserId" id="selectedUserId" value="@Model.SelectedUserId" />
+                    <input type="hidden" name="SelectedDeptId" value="@Model.SelectedDeptId" />
+
+                    <div class="card">
+                        <div class="card-header">Datos de la persona seleccionada</div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <div class="mb-2"><strong>Código:</strong> <span id="selectedBadge">@Model.SelectedEmployee?.BadgeNumber</span></div>
+                                    <div class="mb-2"><strong>DNI:</strong> <span id="selectedSsn">@Model.SelectedEmployee?.Ssn</span></div>
+                                    <div class="mb-2"><strong>Nombre:</strong> <span id="selectedName">@Model.SelectedEmployee?.Name</span></div>
+                                    <div><strong>Área / Ubicación:</strong> <span id="selectedDepartment">@Model.SelectedEmployee?.DepartmentName</span></div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <img id="selectedPhoto" src="@Model.SelectedEmployee?.PhotoBase64"
+                                         alt="Fotografía" class="img-thumbnail employee-photo-thumb @(string.IsNullOrWhiteSpace(Model.SelectedEmployee?.PhotoBase64) ? "d-none" : "")" />
+                                    <span id="noSelectedPhoto" class="text-muted @(string.IsNullOrWhiteSpace(Model.SelectedEmployee?.PhotoBase64) ? "" : "d-none")">Sin foto</span>
+                                </div>
+                            </div>
+
+                            <hr />
+
+                            <div class="mb-3">
+                                <label for="securityFlags" class="form-label">Tipo de acceso</label>
+                                <select name="securityFlags" id="securityFlags" class="form-select">
+                                    <option value="">Seleccione...</option>
+                                    <option value="15">Administrador</option>
+                                    <option value="7">Supervisor</option>
+                                    <option value="8">Supervisor de Departamento 1</option>
+                                    <option value="9">Supervisor de Departamento 2</option>
+                                    <option value="5">Usuario Autoservicio</option>
+                                </select>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+                                <button type="submit" class="btn btn-primary" id="createAccessButton" disabled>Crear acceso</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const radios = document.querySelectorAll('.employee-option');
+    const selectedUserId = document.getElementById('selectedUserId');
+    const securityFlags = document.getElementById('securityFlags');
+    const createButton = document.getElementById('createAccessButton');
+    const photo = document.getElementById('selectedPhoto');
+    const noPhoto = document.getElementById('noSelectedPhoto');
+
+    function refreshButton() {
+        createButton.disabled = !selectedUserId.value || !securityFlags.value;
+    }
+
+    function selectEmployee(radio) {
+        selectedUserId.value = radio.value;
+        document.getElementById('selectedBadge').textContent = radio.dataset.badge || '';
+        document.getElementById('selectedSsn').textContent = radio.dataset.ssn || '';
+        document.getElementById('selectedName').textContent = radio.dataset.name || '';
+        document.getElementById('selectedDepartment').textContent = radio.dataset.department || '';
+
+        if (radio.dataset.photo) {
+            photo.src = radio.dataset.photo;
+            photo.classList.remove('d-none');
+            noPhoto.classList.add('d-none');
+        } else {
+            photo.removeAttribute('src');
+            photo.classList.add('d-none');
+            noPhoto.classList.remove('d-none');
+        }
+
+        refreshButton();
+    }
+
+    radios.forEach(radio => {
+        radio.addEventListener('change', function () { selectEmployee(this); });
+    });
+
+    securityFlags.addEventListener('change', refreshButton);
+
+    const checked = document.querySelector('.employee-option:checked');
+    if (checked) selectEmployee(checked);
+
+    document.getElementById('createAccessForm').addEventListener('submit', function (event) {
+        if (!selectedUserId.value || !securityFlags.value) {
+            event.preventDefault();
+            alert('Debe seleccionar una persona y un tipo de acceso.');
+            return;
+        }
+
+        if (!window.confirm('¿Está seguro de que desea crear el acceso al sistema para la persona seleccionada?')) {
+            event.preventDefault();
+        }
+    });
+})();
+</script>
+}

@@ -18,8 +18,32 @@ build_property.GenerateRazorMetadataSourceChecksumAttributes =
 build_property.MSBuildProjectDirectory = D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web
 build_property._RazorSourceGeneratorDebug = 
 
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/AccesoAlSistema/Editar.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWNjZXNvQWxTaXN0ZW1hXEVkaXRhci5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/AccesoAlSistema/Eliminar.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWNjZXNvQWxTaXN0ZW1hXEVsaW1pbmFyLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/AccesoAlSistema/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWNjZXNvQWxTaXN0ZW1hXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/AccesoAlSistema/Nuevo.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWNjZXNvQWxTaXN0ZW1hXE51ZXZvLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/AcercaDe/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWNlcmNhRGVcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Areas/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXJlYXNcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Auditoria/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXVkaXRvcmlhXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/FABRICASOFT/ControlAsistenciaWeb/src/ControlAsistencia.Web/Views/Auth/Login.cshtml]

@@ -121,11 +121,13 @@ s                                    <li><a class="dropdown-item" asp-area="" as
                                     Configuración
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Empresas" asp-action="Index">Empresas</a></li>
+                                    <!--
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Reglas-de-Asistencia" asp-action="Index">Reglas de Asistencia</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Acceso-al-Sistema" asp-action="Index">Acceso al Sistema</a></li>
+                                    //-->
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Empresas" asp-action="Index">Empresas</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="AccesoAlSistema" asp-action="Index">Acceso al Sistema</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Auditoria" asp-action="Index">Auditoría</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Acerca-De" asp-action="Index">Acerca De</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="AcercaDe" asp-action="Index">Acerca De</a></li>
                                     <!--
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Permisos-del-Usuario" asp-action="Index">Permisos del Usuario</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Opciones-del-Sistema" asp-action="Index">Opciones del Sistema</a></li>
@@ -142,7 +144,7 @@ s                                    <li><a class="dropdown-item" asp-area="" as
                                     @User.Identity?.Name
                                 </a>                                
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Cambio de Claves" asp-action="Index">Cambio de Claves</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="CambiodeClaves" asp-action="Index">Cambio de Claves</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Cerrar Sesión" asp-action="Index">
                                         <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
                                             @Html.AntiForgeryToken()

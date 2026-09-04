@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "/+CF3BHyYiGP9iX6ksqTfXyzZaXINAzfEGUlZy5s8j4=",
+  "Hash": "393qcMEY1vh32SMTw4uDarvrfBn8F0HpxyiRem9aVRs=",
   "Source": "ControlAsistencia.Web",
   "BasePath": "_content/ControlAsistencia.Web",
   "Mode": "Default",
@@ -1212,6 +1212,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\logo-control-asistencia.png"
+    },
+    {
+      "Identity": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\wwwroot\\logo-control-asistencia0.png",
+      "SourceId": "ControlAsistencia.Web",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\wwwroot\\",
+      "BasePath": "_content/ControlAsistencia.Web",
+      "RelativePath": "logo-control-asistencia0.png",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\logo-control-asistencia0.png"
     },
     {
       "Identity": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\wwwroot\\manifest.webmanifest",

@@ -27,7 +27,8 @@ SELECT TOP (1)
     SECURITYFLAGS AS SecurityFlags
 FROM dbo.USERINFO WITH (NOLOCK)
 WHERE BADGENUMBER = @BadgeNumber
-  AND [PASSWORD] = @Password;";
+  AND [PASSWORD] = @Password; 
+  AND ISNULL(SECURITYFLAGS,0)>=5  " ;
 
         try
         {

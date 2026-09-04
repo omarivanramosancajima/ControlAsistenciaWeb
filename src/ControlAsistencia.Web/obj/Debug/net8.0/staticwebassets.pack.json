@@ -249,6 +249,10 @@
       "PackagePath": "staticwebassets\\logo-control-asistencia.png"
     },
     {
+      "Id": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\wwwroot\\logo-control-asistencia0.png",
+      "PackagePath": "staticwebassets\\logo-control-asistencia0.png"
+    },
+    {
       "Id": "D:\\FABRICASOFT\\ControlAsistenciaWeb\\src\\ControlAsistencia.Web\\wwwroot\\manifest.webmanifest",
       "PackagePath": "staticwebassets\\manifest.webmanifest"
     },

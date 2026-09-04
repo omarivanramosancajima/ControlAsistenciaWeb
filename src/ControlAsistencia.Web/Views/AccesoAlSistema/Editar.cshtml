@@ -1,0 +1,96 @@
+@model ControlAsistencia.Web.Models.AccesoAlSistemaEditViewModel
+@{
+    ViewData["Title"] = "Editar acceso";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Editar acceso</h1>
+    </div>
+    <div class="card-body">
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="alert alert-danger">
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <div>@error.ErrorMessage</div>
+                }
+            </div>
+        }
+
+        <form asp-action="Editar" method="post" id="editAccessForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="UserId" />
+            <input type="hidden" name="search" value="@Context.Request.Query["search"]" />
+            <input type="hidden" name="page" value="@Context.Request.Query["page"]" />
+
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <div class="mb-2"><strong>Código:</strong> @Model.BadgeNumber</div>
+                    <div class="mb-2"><strong>DNI:</strong> @Model.Ssn</div>
+                    <div class="mb-2"><strong>Nombre:</strong> @Model.Name</div>
+                    <div><strong>Área / Ubicación:</strong> @Model.DepartmentName</div>
+                </div>
+                <div class="col-md-4 text-center">
+                    @if (!string.IsNullOrWhiteSpace(Model.PhotoBase64))
+                    {
+                        <img src="@Model.PhotoBase64" alt="Fotografía" class="img-thumbnail employee-photo-thumb" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">Sin foto</span>
+                    }
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="mb-3">
+                <label for="NewSecurityFlags" class="form-label">Tipo de acceso</label>
+                <select asp-for="NewSecurityFlags" id="NewSecurityFlags" class="form-select">
+                    <option value="15">Administrador</option>
+                    <option value="7">Supervisor</option>
+                    <option value="8">Supervisor de Departamento 1</option>
+                    <option value="9">Supervisor de Departamento 2</option>
+                    <option value="5">Usuario Autoservicio</option>
+                </select>
+                <div class="form-text">Acceso actual: @Model.AccessDescription</div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-action="Index" asp-route-search="@Context.Request.Query["search"]"
+                   asp-route-page="@Context.Request.Query["page"]" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary" id="saveAccessButton">Grabar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const select = document.getElementById('NewSecurityFlags');
+    const button = document.getElementById('saveAccessButton');
+    const current = '@Model.SecurityFlags';
+
+    function refresh() {
+        button.disabled = select.value === current;
+    }
+
+    select.addEventListener('change', refresh);
+    refresh();
+
+    document.getElementById('editAccessForm').addEventListener('submit', function (event) {
+        if (select.value === current) {
+            event.preventDefault();
+            alert('Debe seleccionar un nivel de acceso diferente al actual.');
+            return;
+        }
+
+        if (!window.confirm('¿Está seguro de que desea modificar el acceso al sistema?')) {
+            event.preventDefault();
+        }
+    });
+})();
+</script>
+}

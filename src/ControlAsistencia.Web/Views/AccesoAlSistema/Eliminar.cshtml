@@ -1,0 +1,56 @@
+@model ControlAsistencia.Web.Models.AccesoAlSistemaDeleteViewModel
+@{
+    ViewData["Title"] = "Eliminar acceso";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Eliminar acceso al sistema</h1>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="mb-2"><strong>Código:</strong> @Model.BadgeNumber</div>
+                <div class="mb-2"><strong>DNI:</strong> @Model.Ssn</div>
+                <div class="mb-2"><strong>Nombre:</strong> @Model.Name</div>
+                <div class="mb-2"><strong>Área / Ubicación:</strong> @Model.DepartmentName</div>
+                <div><strong>Perfil / Tipo de acceso:</strong> @Model.AccessDescription</div>
+            </div>
+            <div class="col-md-4 text-center">
+                @if (!string.IsNullOrWhiteSpace(Model.PhotoBase64))
+                {
+                    <img src="@Model.PhotoBase64" alt="Fotografía" class="img-thumbnail employee-photo-thumb" />
+                }
+                else
+                {
+                    <span class="text-muted">Sin foto</span>
+                }
+            </div>
+        </div>
+
+        <hr />
+
+        <form asp-action="EliminarConfirmado" method="post" id="deleteAccessForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="UserId" />
+            <input type="hidden" name="search" value="@Context.Request.Query["search"]" />
+            <input type="hidden" name="page" value="@Context.Request.Query["page"]" />
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-action="Index" asp-route-search="@Context.Request.Query["search"]"
+                   asp-route-page="@Context.Request.Query["page"]" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Eliminar acceso</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('deleteAccessForm').addEventListener('submit', function (event) {
+    if (!window.confirm('¿Está seguro de que desea eliminar el acceso al sistema?')) {
+        event.preventDefault();
+    }
+});
+</script>
+}
