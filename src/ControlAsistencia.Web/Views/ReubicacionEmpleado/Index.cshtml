@@ -1,0 +1,540 @@
+@model ControlAsistencia.Web.Models.ReubicacionEmpleadoIndexViewModel
+@{
+    ViewData["Title"] = "Reubicación del Personal";
+}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h1 class="h4 mb-0">Reubicación del Personal</h1>
+    </div>
+
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <h2 class="h6 mb-3">Departamentos / Áreas</h2>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox"
+                               id="includeSubDependencies" />
+                        <label class="form-check-label" for="includeSubDependencies">
+                            Incluir Sub-Dependencias
+                        </label>
+                    </div>
+                    <div class="list-group overflow-auto" id="departmentList">
+                        @if (Model.Departments.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">
+                                No existen departamentos registrados.
+                            </div>
+                        }
+                        else
+                        {
+                            foreach (var department in Model.Departments)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action department-selector"
+                                        data-dept-id="@department.DeptId">
+                                    <span class="d-inline-block ps-@Math.Min(department.Level * 2, 5)">
+                                        @department.DeptName
+                                    </span>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Relación de Personal</h2>
+                        <button type="button" class="btn btn-primary btn-sm"
+                                id="transferEmployeesButton" disabled>
+                            TRASLADAR PERSONAL
+                        </button>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox"
+                               id="selectAllEmployees" />
+                        <label class="form-check-label" for="selectAllEmployees">
+                            Seleccionar todas las personas
+                        </label>
+                    </div>
+
+                    <div class="table-responsive employee-panel-scroll flex-grow-1">
+                        <table class="table table-hover align-middle mb-0" id="employeesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th></th>
+                                    <th>Código</th>
+                                    <th>DNI</th>
+                                    <th>Nombre</th>
+                                    <th>Área</th>
+                                    <th>Foto</th>
+                                    <th>Perfil</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        Seleccione un departamento o área.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="transferModal" tabindex="-1"
+     aria-labelledby="transferModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transferModalLabel">Trasladar Personal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Personas seleccionadas</h6>
+                    <div class="border rounded p-2 overflow-auto" id="selectedPeopleList"
+                         style="max-height: 180px;"></div>
+                </div>
+
+                <div class="mb-3">
+                    <h6>Área / Ubicación de destino</h6>
+                    <button type="button" class="btn btn-outline-primary w-100 text-start"
+                            id="openDepartmentPickerButton">
+                        <span id="selectedDepartmentText">Seleccione un área...</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary"
+                        id="confirmTransferButton">
+                    Trasladar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="departmentPickerModal" tabindex="-1"
+     aria-labelledby="departmentPickerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="departmentPickerModalLabel">
+                    Seleccionar Área / Ubicación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group" id="targetDepartmentList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary"
+                        id="acceptDepartmentButton" disabled>
+                    Seleccionar Área
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="transferProgressModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false"
+     aria-labelledby="transferProgressModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transferProgressModalLabel">
+                    Progreso de Reubicación
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div id="transferProgressSummary" class="mb-3"></div>
+                <div class="list-group" id="transferProgressList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary"
+                        id="closeProgressButton" disabled>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const employeesByDepartmentUrl =
+        '@Url.Action("EmpleadosPorDepartamento", "ReubicacionEmpleado")';
+    const selectedPeopleUrl =
+        '@Url.Action("PersonasSeleccionadas", "ReubicacionEmpleado")';
+    const departmentsUrl =
+        '@Url.Action("AreasDisponibles", "ReubicacionEmpleado")';
+    const transferUrl =
+        '@Url.Action("TrasladarPersonal", "ReubicacionEmpleado")';
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+    const includeSubDependencies = document.getElementById('includeSubDependencies');
+    const selectAllEmployees = document.getElementById('selectAllEmployees');
+    const transferEmployeesButton = document.getElementById('transferEmployeesButton');
+    const employeesTableBody = document.querySelector('#employeesTable tbody');
+
+    const transferModalElement = document.getElementById('transferModal');
+    const departmentPickerModalElement = document.getElementById('departmentPickerModal');
+    const transferProgressModalElement = document.getElementById('transferProgressModal');
+
+    const transferModal = new bootstrap.Modal(transferModalElement);
+    const departmentPickerModal = new bootstrap.Modal(departmentPickerModalElement);
+    const transferProgressModal = new bootstrap.Modal(transferProgressModalElement);
+
+    const selectedPeopleList = document.getElementById('selectedPeopleList');
+    const targetDepartmentList = document.getElementById('targetDepartmentList');
+    const selectedDepartmentText = document.getElementById('selectedDepartmentText');
+    const openDepartmentPickerButton = document.getElementById('openDepartmentPickerButton');
+    const acceptDepartmentButton = document.getElementById('acceptDepartmentButton');
+    const confirmTransferButton = document.getElementById('confirmTransferButton');
+    const transferProgressSummary = document.getElementById('transferProgressSummary');
+    const transferProgressList = document.getElementById('transferProgressList');
+    const closeProgressButton = document.getElementById('closeProgressButton');
+
+    let selectedDepartmentId = null;
+    let focusedEmployeeId = null;
+    let selectedEmployeeIds = new Set();
+    let visibleEmployees = [];
+    let targetDepartmentId = null;
+    let targetDepartmentName = '';
+
+    document.querySelectorAll('.department-selector').forEach(button => {
+        button.addEventListener('click', async function () {
+            document.querySelectorAll('.department-selector')
+                .forEach(item => item.classList.remove('active'));
+            this.classList.add('active');
+            selectedDepartmentId = Number(this.dataset.deptId);
+            focusedEmployeeId = null;
+            await loadEmployees();
+        });
+    });
+
+    includeSubDependencies.addEventListener('change', async function () {
+        if (selectedDepartmentId) {
+            focusedEmployeeId = null;
+            await loadEmployees();
+        }
+    });
+
+    selectAllEmployees.addEventListener('change', function () {
+        if (this.checked) {
+            visibleEmployees.forEach(item => selectedEmployeeIds.add(item.userId));
+        } else {
+            visibleEmployees.forEach(item => selectedEmployeeIds.delete(item.userId));
+        }
+        renderEmployees();
+        syncTransferButton();
+    });
+
+    transferEmployeesButton.addEventListener('click', openTransferModal);
+    openDepartmentPickerButton.addEventListener('click', openDepartmentPicker);
+    acceptDepartmentButton.addEventListener('click', function () {
+        if (!targetDepartmentId) return;
+        selectedDepartmentText.textContent = targetDepartmentName;
+        departmentPickerModal.hide();
+    });
+    confirmTransferButton.addEventListener('click', executeTransfer);
+    closeProgressButton.addEventListener('click', () => transferProgressModal.hide());
+
+    async function loadEmployees() {
+        employeesTableBody.innerHTML =
+            '<tr><td colspan="7" class="text-center text-muted py-4">Cargando personas...</td></tr>';
+
+        const response = await fetch(
+            `${employeesByDepartmentUrl}?deptId=${selectedDepartmentId}` +
+            `&includeSubDependencies=${includeSubDependencies.checked}`,
+            { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            employeesTableBody.innerHTML =
+                `<tr><td colspan="7" class="text-center text-danger py-4">${escapeHtml(
+                    result.message || 'No fue posible cargar las personas.')}</td></tr>`;
+            visibleEmployees = [];
+            syncSelectAllEmployees();
+            syncTransferButton();
+            return;
+        }
+
+        visibleEmployees = result.items || [];
+        selectedEmployeeIds = new Set(
+            Array.from(selectedEmployeeIds)
+                .filter(id => visibleEmployees.some(item => item.userId === id)));
+
+        if (visibleEmployees.length === 0) {
+            focusedEmployeeId = null;
+            renderEmployees();
+            return;
+        }
+
+        focusedEmployeeId = visibleEmployees.some(item => item.userId === focusedEmployeeId)
+            ? focusedEmployeeId : visibleEmployees[0].userId;
+
+        renderEmployees();
+    }
+
+    function renderEmployees() {
+        if (visibleEmployees.length === 0) {
+            employeesTableBody.innerHTML =
+                '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                'No hay personas asignadas a este departamento.</td></tr>';
+            syncSelectAllEmployees();
+            syncTransferButton();
+            return;
+        }
+
+        employeesTableBody.innerHTML = visibleEmployees.map(item => {
+            const isFocused = item.userId === focusedEmployeeId;
+            const isChecked = selectedEmployeeIds.has(item.userId);
+            const photoContent = item.photoBase64
+                ? `<img src="${item.photoBase64}" alt="Foto" class="img-thumbnail employee-photo-thumb" />`
+                : '<div class="border rounded d-inline-flex align-items-center justify-content-center bg-light text-muted employee-photo-thumb">N/D</div>';
+
+            return `<tr class="employee-row ${isFocused ? 'table-primary' : ''}"
+                        data-user-id="${item.userId}">
+                <td><input type="checkbox" class="form-check-input employee-checkbox"
+                           data-user-id="${item.userId}" ${isChecked ? 'checked' : ''} /></td>
+                <td>${escapeHtml(item.badgeNumber || '')}</td>
+                <td>${escapeHtml(item.ssn || '')}</td>
+                <td>${escapeHtml(item.name || '')}</td>
+                <td>${escapeHtml(item.departmentName || '')}</td>
+                <td>${photoContent}</td>
+                <td>${escapeHtml(item.privilegeDescription || 'Desconocido')}</td>
+            </tr>`;
+        }).join('');
+
+        employeesTableBody.querySelectorAll('.employee-row').forEach(row => {
+            row.addEventListener('click', function (event) {
+                if (event.target.closest('.employee-checkbox')) return;
+                focusedEmployeeId = Number(this.dataset.userId);
+                renderEmployees();
+            });
+        });
+
+        employeesTableBody.querySelectorAll('.employee-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('click', event => event.stopPropagation());
+            checkbox.addEventListener('change', function () {
+                const userId = Number(this.dataset.userId);
+                if (this.checked) selectedEmployeeIds.add(userId);
+                else selectedEmployeeIds.delete(userId);
+                syncSelectAllEmployees();
+                syncTransferButton();
+            });
+        });
+
+        syncSelectAllEmployees();
+        syncTransferButton();
+    }
+
+    function syncSelectAllEmployees() {
+        selectAllEmployees.checked =
+            visibleEmployees.length > 0 &&
+            visibleEmployees.every(item => selectedEmployeeIds.has(item.userId));
+    }
+
+    function syncTransferButton() {
+        transferEmployeesButton.disabled = selectedEmployeeIds.size === 0;
+    }
+
+    async function openTransferModal() {
+        if (selectedEmployeeIds.size === 0) {
+            alert('Debe seleccionar al menos una persona.');
+            return;
+        }
+
+        selectedPeopleList.innerHTML =
+            '<div class="text-muted">Cargando personas seleccionadas...</div>';
+
+        const ids = Array.from(selectedEmployeeIds);
+        const response = await fetch(
+            `${selectedPeopleUrl}?${ids.map(id => `userIds=${encodeURIComponent(id)}`).join('&')}`,
+            { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            alert(result.message || 'No fue posible cargar las personas seleccionadas.');
+            return;
+        }
+
+        selectedPeopleList.innerHTML = (result.items || []).map(item =>
+            `<div class="form-check">
+                <input class="form-check-input" type="checkbox" checked disabled />
+                <label class="form-check-label">
+                    ${escapeHtml(item.name || '')} (${escapeHtml(item.badgeNumber || '')})
+                </label>
+            </div>`).join('');
+
+        targetDepartmentId = null;
+        targetDepartmentName = '';
+        selectedDepartmentText.textContent = 'Seleccione un área...';
+        acceptDepartmentButton.disabled = true;
+        transferModal.show();
+    }
+
+    async function openDepartmentPicker() {
+        targetDepartmentList.innerHTML =
+            '<div class="text-muted text-center py-3">Cargando áreas...</div>';
+        departmentPickerModal.show();
+
+        const response = await fetch(departmentsUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            targetDepartmentList.innerHTML =
+                `<div class="text-danger">${escapeHtml(
+                    result.message || 'No fue posible cargar las áreas.')}</div>`;
+            return;
+        }
+
+        targetDepartmentList.innerHTML = (result.items || []).map(item => `
+            <button type="button"
+                    class="list-group-item list-group-item-action target-department"
+                    data-dept-id="${item.deptId}"
+                    data-dept-name="${escapeHtml(item.deptName || '')}">
+                <span class="d-inline-block ps-${Math.min((item.level || 0) * 2, 5)}">
+                    ${escapeHtml(item.deptName || '')}
+                </span>
+            </button>`).join('');
+
+        targetDepartmentList.querySelectorAll('.target-department').forEach(button => {
+            button.addEventListener('click', function () {
+                targetDepartmentList.querySelectorAll('.target-department')
+                    .forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
+                targetDepartmentId = Number(this.dataset.deptId);
+                targetDepartmentName = this.dataset.deptName;
+                acceptDepartmentButton.disabled = false;
+            });
+        });
+    }
+
+    async function executeTransfer() {
+        if (selectedEmployeeIds.size === 0) {
+            alert('Debe seleccionar al menos una persona.');
+            return;
+        }
+        if (!targetDepartmentId) {
+            alert('Debe seleccionar un área de destino.');
+            return;
+        }
+
+        confirmTransferButton.disabled = true;
+        transferProgressList.innerHTML = '';
+        transferProgressSummary.textContent =
+            `Procesando ${selectedEmployeeIds.size} persona(s) hacia ${targetDepartmentName}.`;
+        closeProgressButton.disabled = true;
+        transferProgressModal.show();
+        transferModal.hide();
+
+        const userIds = Array.from(selectedEmployeeIds);
+        userIds.forEach(id => {
+            const employee = visibleEmployees.find(x => x.userId === id);
+            const item = document.createElement('div');
+            item.className = 'list-group-item';
+            item.dataset.userId = id;
+            item.innerHTML =
+                `<div class="fw-semibold">${escapeHtml(employee?.name || '')}</div>` +
+                `<div class="small text-muted">Estado: Pendiente</div>`;
+            transferProgressList.appendChild(item);
+        });
+
+        const response = await fetch(transferUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                userIds: userIds,
+                targetDeptId: targetDepartmentId
+            })
+        });
+
+        let result = null;
+        try { result = await response.json(); } catch { }
+
+        if (!response.ok || !result?.items) {
+            transferProgressSummary.textContent =
+                result?.message || 'No fue posible completar la reubicación.';
+            closeProgressButton.disabled = false;
+            confirmTransferButton.disabled = false;
+            return;
+        }
+
+        const itemsById = new Map(result.items.map(x => [x.userId, x]));
+        result.items.forEach(item => {
+            const row = transferProgressList.querySelector(
+                `[data-user-id="${item.userId}"]`);
+            if (!row) return;
+            const statusClass = item.status === 'Completado'
+                ? 'text-success'
+                : item.status === 'Sin cambio'
+                    ? 'text-muted' : 'text-danger';
+            row.innerHTML =
+                `<div class="fw-semibold">${escapeHtml(item.name || '')}</div>` +
+                `<div class="${statusClass}">Estado: ${escapeHtml(item.status || '')}</div>` +
+                `<div class="small">${escapeHtml(item.detail || '')}</div>`;
+        });
+
+        const successCount = result.items.filter(x =>
+            x.status === 'Completado' || x.status === 'Sin cambio').length;
+        transferProgressSummary.textContent =
+            `Finalizado. Procesadas: ${result.items.length}. Correctas: ${successCount}.`;
+
+        closeProgressButton.disabled = false;
+        confirmTransferButton.disabled = false;
+
+        if (result.success) {
+            transferModal.hide();
+            selectedEmployeeIds.clear();
+            selectAllEmployees.checked = false;
+            transferEmployeesButton.disabled = true;
+            await loadEmployees();
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+})();
+</script>
+}

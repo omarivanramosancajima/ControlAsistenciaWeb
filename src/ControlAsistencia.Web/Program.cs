@@ -35,6 +35,7 @@ builder.Services.AddScoped<IAttendanceCalculationEngine, AttendanceCalculationEn
 builder.Services.AddScoped<IAttendanceReportService, AttendanceReportService>();
 builder.Services.AddScoped<IJustificarEmpleadoRepository, JustificarEmpleadoRepository>();
 builder.Services.AddScoped<IMarcacionEmpleadoRepository, MarcacionEmpleadoRepository>();
+builder.Services.AddScoped<IReubicacionEmpleadoRepository, ReubicacionEmpleadoRepository>();
 builder.Services.AddScoped<IPlantillaPersonalRepository, PlantillaPersonalRepository>();
 
 
