@@ -85,53 +85,82 @@ public class ReporteDeAsistenciaController : Controller
         ws.Cell(1, 1).Value = "Reporte de Asistencia MTPE";
         ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
         ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
-        ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
+        //ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
         ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
         ws.Range(2, 1, 2, 16).Merge();
         ws.Range(3, 1, 3, 16).Merge();
         ws.Range(4, 1, 4, 16).Merge();
 
         var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
-        for (var i = 0; i < headers.Length; i++)
-        {
-            ws.Cell(6, i + 1).Value = headers[i];
-            ws.Cell(6, i + 1).Style.Font.SetBold();
-            ws.Cell(6, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
-        }
+        var rowIndex = 6;
 
-        var rowIndex = 7;
-        foreach (var item in report.Rows)
-        {
-            ws.Cell(rowIndex, 1).Value = item.Codigo;
-            ws.Cell(rowIndex, 2).Value = item.Dni;
-            ws.Cell(rowIndex, 3).Value = item.Personal;
-            ws.Cell(rowIndex, 4).Value = item.Area;
-            ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
-            ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
-            ws.Cell(rowIndex, 7).Value = item.Entrada;
-            ws.Cell(rowIndex, 8).Value = item.Salida;
-            ws.Cell(rowIndex, 9).Value = item.Falta;
-            ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
-            ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
-            ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
-            ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
-            ws.Cell(rowIndex, 14).Value = item.HorasExtras;
-            ws.Cell(rowIndex, 15).Value = item.Excepcion;
-            ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
-            rowIndex++;
-        }
-
-        rowIndex++;
-        ws.Cell(rowIndex, 1).Value = "Totales";
-        ws.Cell(rowIndex, 1).Style.Font.SetBold();
-        rowIndex++;
-
+        // Cada persona se exporta como un bloque independiente:
+        // cabecera de persona -> detalle diario -> totales de persona.
         foreach (var person in report.Persons)
         {
-            ws.Cell(rowIndex, 1).Value = person.Personal;
+            ws.Cell(rowIndex, 1).Value = "Datos de persona";
             ws.Cell(rowIndex, 1).Style.Font.SetBold();
-            ws.Cell(rowIndex, 2).Value = $"Código: {person.Codigo}";
-            ws.Cell(rowIndex, 3).Value = $"DNI: {person.Dni}";
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+            ws.Cell(rowIndex, 1).Value = "Código";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 2).Value = person.Codigo;
+
+            ws.Cell(rowIndex, 3).Value = "DNI";
+            ws.Cell(rowIndex, 3).Style.Font.SetBold();
+            ws.Cell(rowIndex, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 4).Value = person.Dni;
+
+            ws.Cell(rowIndex, 5).Value = "Personal";
+            ws.Cell(rowIndex, 5).Style.Font.SetBold();
+            ws.Cell(rowIndex, 5).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 6).Value = person.Personal;
+
+            ws.Cell(rowIndex, 7).Value = "Área";
+            ws.Cell(rowIndex, 7).Style.Font.SetBold();
+            ws.Cell(rowIndex, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 8).Value = person.Area;
+
+            ws.Range(rowIndex, 1, rowIndex, 16).Style.Font.SetBold();
+            rowIndex++;
+
+            for (var i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(rowIndex, i + 1).Value = headers[i];
+                ws.Cell(rowIndex, i + 1).Style.Font.SetBold();
+                ws.Cell(rowIndex, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            rowIndex++;
+
+            foreach (var item in person.Rows.OrderBy(static x => x.Fecha))
+            {
+                ws.Cell(rowIndex, 1).Value = item.Codigo;
+                ws.Cell(rowIndex, 2).Value = item.Dni;
+                ws.Cell(rowIndex, 3).Value = item.Personal;
+                ws.Cell(rowIndex, 4).Value = item.Area;
+                ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
+                ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
+                ws.Cell(rowIndex, 7).Value = item.Entrada;
+                ws.Cell(rowIndex, 8).Value = item.Salida;
+                ws.Cell(rowIndex, 9).Value = item.Falta;
+                ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
+                ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
+                ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
+                ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
+                ws.Cell(rowIndex, 14).Value = item.HorasExtras;
+                ws.Cell(rowIndex, 15).Value = item.Excepcion;
+                ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
+                rowIndex++;
+            }
+
+            rowIndex++;
+            ws.Cell(rowIndex, 1).Value = "Totales persona";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
             rowIndex++;
 
             WriteSummaryRow(ws, rowIndex++, "Días de Asistencia", person.DiasAsistencia, "Días con Turno", person.DiasConTurno);
@@ -141,6 +170,7 @@ public class ReporteDeAsistenciaController : Controller
             WriteSummaryRow(ws, rowIndex++, "Tardanza", person.Tardanza, "Salida Temprana", person.SalidaTemprana);
             WriteSummaryRow(ws, rowIndex++, "Horas Extras", person.HorasExtras, "Días Justificados", person.DiasJustificados);
             WriteSummaryRow(ws, rowIndex++, "Horas Justificadas", person.HorasJustificadas, string.Empty, string.Empty);
+
             rowIndex++;
         }
 
@@ -169,52 +199,86 @@ public class ReporteDeAsistenciaController : Controller
         });
 
         using var workbook = new XLWorkbook();
-        var ws = workbook.Worksheets.Add("Reporte de Faltas");
-        ws.Cell(1, 1).Value = "Reporte de Faltas";
+        var ws = workbook.Worksheets.Add("Reporte Faltas Personal");
+        ws.Cell(1, 1).Value = "Reporte de Faltas del Personal";
         ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
         ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
-        ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
+        //ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
         ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
         ws.Range(2, 1, 2, 16).Merge();
         ws.Range(3, 1, 3, 16).Merge();
         ws.Range(4, 1, 4, 16).Merge();
 
         var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
-        for (var i = 0; i < headers.Length; i++)
-        {
-            ws.Cell(6, i + 1).Value = headers[i];
-            ws.Cell(6, i + 1).Style.Font.SetBold();
-            ws.Cell(6, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
-        }
+        var rowIndex = 6;
 
-        var rowIndex = 7;
-        foreach (var item in report.Rows)
-        {
-            ws.Cell(rowIndex, 1).Value = item.Codigo;
-            ws.Cell(rowIndex, 2).Value = item.Dni;
-            ws.Cell(rowIndex, 3).Value = item.Personal;
-            ws.Cell(rowIndex, 4).Value = item.Area;
-            ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
-            ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
-            ws.Cell(rowIndex, 7).Value = item.Entrada;
-            ws.Cell(rowIndex, 8).Value = item.Salida;
-            ws.Cell(rowIndex, 9).Value = item.Falta;
-            ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
-            ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
-            ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
-            ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
-            ws.Cell(rowIndex, 14).Value = item.HorasExtras;
-            ws.Cell(rowIndex, 15).Value = item.Excepcion;
-            ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
-            rowIndex++;
-        }
-
-        rowIndex++;
-
+        // Cada persona se exporta como un bloque independiente:
+        // cabecera de persona -> detalle diario -> totales de persona.
         foreach (var person in report.Persons)
         {
-            ws.Cell(rowIndex, 1).Value = "Total Faltas de "+person.Personal+" : "+person.DiasFalta+" días.";
+            ws.Cell(rowIndex, 1).Value = "Datos de persona";
             ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+            ws.Cell(rowIndex, 1).Value = "Código";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 2).Value = person.Codigo;
+
+            ws.Cell(rowIndex, 3).Value = "DNI";
+            ws.Cell(rowIndex, 3).Style.Font.SetBold();
+            ws.Cell(rowIndex, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 4).Value = person.Dni;
+
+            ws.Cell(rowIndex, 5).Value = "Personal";
+            ws.Cell(rowIndex, 5).Style.Font.SetBold();
+            ws.Cell(rowIndex, 5).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 6).Value = person.Personal;
+
+            ws.Cell(rowIndex, 7).Value = "Área";
+            ws.Cell(rowIndex, 7).Style.Font.SetBold();
+            ws.Cell(rowIndex, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 8).Value = person.Area;
+
+            ws.Range(rowIndex, 1, rowIndex, 16).Style.Font.SetBold();
+            rowIndex++;
+
+            for (var i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(rowIndex, i + 1).Value = headers[i];
+                ws.Cell(rowIndex, i + 1).Style.Font.SetBold();
+                ws.Cell(rowIndex, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            rowIndex++;
+
+            foreach (var item in person.Rows.OrderBy(static x => x.Fecha))
+            {
+                ws.Cell(rowIndex, 1).Value = item.Codigo;
+                ws.Cell(rowIndex, 2).Value = item.Dni;
+                ws.Cell(rowIndex, 3).Value = item.Personal;
+                ws.Cell(rowIndex, 4).Value = item.Area;
+                ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
+                ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
+                ws.Cell(rowIndex, 7).Value = item.Entrada;
+                ws.Cell(rowIndex, 8).Value = item.Salida;
+                ws.Cell(rowIndex, 9).Value = item.Falta;
+                ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
+                ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
+                ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
+                ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
+                ws.Cell(rowIndex, 14).Value = item.HorasExtras;
+                ws.Cell(rowIndex, 15).Value = item.Excepcion;
+                ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
+                rowIndex++;
+            }
+
+            rowIndex++;
+            ws.Cell(rowIndex, 1).Value = "Total Faltas de la persona: "+person.DiasFalta+" días.";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
             rowIndex++;
 
         }
@@ -225,8 +289,445 @@ public class ReporteDeAsistenciaController : Controller
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
-        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteFaltas.xlsx");
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteFalta.xlsx");
     }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportarExcelTardanza(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Reporte Tardanza");
+        ws.Cell(1, 1).Value = "Reporte de Tardanza del Personal";
+        ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
+        ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
+        
+        //ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
+        ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
+        ws.Range(2, 1, 2, 16).Merge();
+        ws.Range(3, 1, 3, 16).Merge();
+        ws.Range(4, 1, 4, 16).Merge();
+
+        var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+        var rowIndex = 6;
+
+        // Cada persona se exporta como un bloque independiente:
+        // cabecera de persona -> detalle diario -> totales de persona.
+        foreach (var person in report.Persons)
+        {
+            ws.Cell(rowIndex, 1).Value = "Datos de persona";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+            ws.Cell(rowIndex, 1).Value = "Código";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 2).Value = person.Codigo;
+
+            ws.Cell(rowIndex, 3).Value = "DNI";
+            ws.Cell(rowIndex, 3).Style.Font.SetBold();
+            ws.Cell(rowIndex, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 4).Value = person.Dni;
+
+            ws.Cell(rowIndex, 5).Value = "Personal";
+            ws.Cell(rowIndex, 5).Style.Font.SetBold();
+            ws.Cell(rowIndex, 5).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 6).Value = person.Personal;
+
+            ws.Cell(rowIndex, 7).Value = "Área";
+            ws.Cell(rowIndex, 7).Style.Font.SetBold();
+            ws.Cell(rowIndex, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 8).Value = person.Area;
+
+            ws.Range(rowIndex, 1, rowIndex, 16).Style.Font.SetBold();
+            rowIndex++;
+
+            for (var i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(rowIndex, i + 1).Value = headers[i];
+                ws.Cell(rowIndex, i + 1).Style.Font.SetBold();
+                ws.Cell(rowIndex, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            rowIndex++;
+
+            foreach (var item in person.Rows.OrderBy(static x => x.Fecha))
+            {
+                ws.Cell(rowIndex, 1).Value = item.Codigo;
+                ws.Cell(rowIndex, 2).Value = item.Dni;
+                ws.Cell(rowIndex, 3).Value = item.Personal;
+                ws.Cell(rowIndex, 4).Value = item.Area;
+                ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
+                ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
+                ws.Cell(rowIndex, 7).Value = item.Entrada;
+                ws.Cell(rowIndex, 8).Value = item.Salida;
+                ws.Cell(rowIndex, 9).Value = item.Falta;
+                ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
+                ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
+                ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
+                ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
+                ws.Cell(rowIndex, 14).Value = item.HorasExtras;
+                ws.Cell(rowIndex, 15).Value = item.Excepcion;
+                ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
+                rowIndex++;
+            }
+
+            rowIndex++;
+            ws.Cell(rowIndex, 1).Value = "Total tardanza persona : "+person.Tardanza+" horas.";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+        }
+
+        ws.Columns().AdjustToContents();
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteTardanza.xlsx");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportarExcelSalTemp(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Reporte Salidas Tempranas");
+        ws.Cell(1, 1).Value = "Reporte de Salidas Tempranas";
+        ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
+        ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
+        
+        //ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
+        ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
+        ws.Range(2, 1, 2, 16).Merge();
+        ws.Range(3, 1, 3, 16).Merge();
+        ws.Range(4, 1, 4, 16).Merge();
+
+        var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+        var rowIndex = 6;
+
+        // Cada persona se exporta como un bloque independiente:
+        // cabecera de persona -> detalle diario -> totales de persona.
+        foreach (var person in report.Persons)
+        {
+            ws.Cell(rowIndex, 1).Value = "Datos de persona";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+            ws.Cell(rowIndex, 1).Value = "Código";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 2).Value = person.Codigo;
+
+            ws.Cell(rowIndex, 3).Value = "DNI";
+            ws.Cell(rowIndex, 3).Style.Font.SetBold();
+            ws.Cell(rowIndex, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 4).Value = person.Dni;
+
+            ws.Cell(rowIndex, 5).Value = "Personal";
+            ws.Cell(rowIndex, 5).Style.Font.SetBold();
+            ws.Cell(rowIndex, 5).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 6).Value = person.Personal;
+
+            ws.Cell(rowIndex, 7).Value = "Área";
+            ws.Cell(rowIndex, 7).Style.Font.SetBold();
+            ws.Cell(rowIndex, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 8).Value = person.Area;
+
+            ws.Range(rowIndex, 1, rowIndex, 16).Style.Font.SetBold();
+            rowIndex++;
+
+            for (var i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(rowIndex, i + 1).Value = headers[i];
+                ws.Cell(rowIndex, i + 1).Style.Font.SetBold();
+                ws.Cell(rowIndex, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            rowIndex++;
+
+            foreach (var item in person.Rows.OrderBy(static x => x.Fecha))
+            {
+                ws.Cell(rowIndex, 1).Value = item.Codigo;
+                ws.Cell(rowIndex, 2).Value = item.Dni;
+                ws.Cell(rowIndex, 3).Value = item.Personal;
+                ws.Cell(rowIndex, 4).Value = item.Area;
+                ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
+                ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
+                ws.Cell(rowIndex, 7).Value = item.Entrada;
+                ws.Cell(rowIndex, 8).Value = item.Salida;
+                ws.Cell(rowIndex, 9).Value = item.Falta;
+                ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
+                ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
+                ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
+                ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
+                ws.Cell(rowIndex, 14).Value = item.HorasExtras;
+                ws.Cell(rowIndex, 15).Value = item.Excepcion;
+                ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
+                rowIndex++;
+            }
+
+            rowIndex++;
+            ws.Cell(rowIndex, 1).Value = "Total Salidas Tempranas : "+person.SalidaTemprana+" horas.";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+        }
+
+        ws.Columns().AdjustToContents();
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteSalTemp.xlsx");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportarExcelExcepcion(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Reporte Permisos-Justificaciones");
+        ws.Cell(1, 1).Value = "Reporte de Permisos Y Justificaciones";
+        ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
+        ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
+        
+        //ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
+        ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
+        ws.Range(2, 1, 2, 16).Merge();
+        ws.Range(3, 1, 3, 16).Merge();
+        ws.Range(4, 1, 4, 16).Merge();
+
+        var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+        var rowIndex = 6;
+
+        // Cada persona se exporta como un bloque independiente:
+        // cabecera de persona -> detalle diario -> totales de persona.
+        foreach (var person in report.Persons)
+        {
+            ws.Cell(rowIndex, 1).Value = "Datos de persona";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+            ws.Cell(rowIndex, 1).Value = "Código";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 2).Value = person.Codigo;
+
+            ws.Cell(rowIndex, 3).Value = "DNI";
+            ws.Cell(rowIndex, 3).Style.Font.SetBold();
+            ws.Cell(rowIndex, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 4).Value = person.Dni;
+
+            ws.Cell(rowIndex, 5).Value = "Personal";
+            ws.Cell(rowIndex, 5).Style.Font.SetBold();
+            ws.Cell(rowIndex, 5).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 6).Value = person.Personal;
+
+            ws.Cell(rowIndex, 7).Value = "Área";
+            ws.Cell(rowIndex, 7).Style.Font.SetBold();
+            ws.Cell(rowIndex, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 8).Value = person.Area;
+
+            ws.Range(rowIndex, 1, rowIndex, 16).Style.Font.SetBold();
+            rowIndex++;
+
+            for (var i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(rowIndex, i + 1).Value = headers[i];
+                ws.Cell(rowIndex, i + 1).Style.Font.SetBold();
+                ws.Cell(rowIndex, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            rowIndex++;
+
+            foreach (var item in person.Rows.OrderBy(static x => x.Fecha))
+            {
+                ws.Cell(rowIndex, 1).Value = item.Codigo;
+                ws.Cell(rowIndex, 2).Value = item.Dni;
+                ws.Cell(rowIndex, 3).Value = item.Personal;
+                ws.Cell(rowIndex, 4).Value = item.Area;
+                ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
+                ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
+                ws.Cell(rowIndex, 7).Value = item.Entrada;
+                ws.Cell(rowIndex, 8).Value = item.Salida;
+                ws.Cell(rowIndex, 9).Value = item.Falta;
+                ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
+                ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
+                ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
+                ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
+                ws.Cell(rowIndex, 14).Value = item.HorasExtras;
+                ws.Cell(rowIndex, 15).Value = item.Excepcion;
+                ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
+                rowIndex++;
+            }
+
+            rowIndex++;
+            ws.Cell(rowIndex, 1).Value = "Total Permisos y Justificaciones : "+person.DiasJustificados+" dias, "+person.HorasJustificadas+" horas.";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+        }
+
+        ws.Columns().AdjustToContents();
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteExcepcion.xlsx");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportarExcelHE(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Reporte Horas Extras");
+        ws.Cell(1, 1).Value = "Reporte de Horas Extras";
+        ws.Cell(2, 1).Value = $"Rango: {report.FechaDesde:dd/MM/yyyy} - {report.FechaHasta:dd/MM/yyyy}";
+        ws.Cell(3, 1).Value = $"RUC: {report.CompanyTaxId} - {report.CompanyName}";
+        
+        //ws.Cell(4, 1).Value = $"Personas: {string.Join(", ", report.Persons.Select(x => x.Personal))}";
+        
+        ws.Range(1, 1, 1, 16).Merge().Style.Font.SetBold().Font.FontSize = 14;
+        ws.Range(2, 1, 2, 16).Merge();
+        ws.Range(3, 1, 3, 16).Merge();
+        ws.Range(4, 1, 4, 16).Merge();
+
+        var headers = new[] { "Código", "DNI", "Personal", "Área", "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+        var rowIndex = 6;
+
+        // Cada persona se exporta como un bloque independiente:
+        // cabecera de persona -> detalle diario -> totales de persona.
+        foreach (var person in report.Persons)
+        {
+            ws.Cell(rowIndex, 1).Value = "Datos de persona";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+            ws.Cell(rowIndex, 1).Value = "Código";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Cell(rowIndex, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 2).Value = person.Codigo;
+
+            ws.Cell(rowIndex, 3).Value = "DNI";
+            ws.Cell(rowIndex, 3).Style.Font.SetBold();
+            ws.Cell(rowIndex, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 4).Value = person.Dni;
+
+            ws.Cell(rowIndex, 5).Value = "Personal";
+            ws.Cell(rowIndex, 5).Style.Font.SetBold();
+            ws.Cell(rowIndex, 5).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 6).Value = person.Personal;
+
+            ws.Cell(rowIndex, 7).Value = "Área";
+            ws.Cell(rowIndex, 7).Style.Font.SetBold();
+            ws.Cell(rowIndex, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+            ws.Cell(rowIndex, 8).Value = person.Area;
+
+            ws.Range(rowIndex, 1, rowIndex, 16).Style.Font.SetBold();
+            rowIndex++;
+
+            for (var i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(rowIndex, i + 1).Value = headers[i];
+                ws.Cell(rowIndex, i + 1).Style.Font.SetBold();
+                ws.Cell(rowIndex, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            rowIndex++;
+
+            foreach (var item in person.Rows.OrderBy(static x => x.Fecha))
+            {
+                ws.Cell(rowIndex, 1).Value = item.Codigo;
+                ws.Cell(rowIndex, 2).Value = item.Dni;
+                ws.Cell(rowIndex, 3).Value = item.Personal;
+                ws.Cell(rowIndex, 4).Value = item.Area;
+                ws.Cell(rowIndex, 5).Value = item.Fecha.ToString("dd/MM/yyyy");
+                ws.Cell(rowIndex, 6).Value = item.HorarioAsignado;
+                ws.Cell(rowIndex, 7).Value = item.Entrada;
+                ws.Cell(rowIndex, 8).Value = item.Salida;
+                ws.Cell(rowIndex, 9).Value = item.Falta;
+                ws.Cell(rowIndex, 10).Value = item.HorasEfectivas;
+                ws.Cell(rowIndex, 11).Value = item.HorasDePermanencia;
+                ws.Cell(rowIndex, 12).Value = item.TardanzaEntrada;
+                ws.Cell(rowIndex, 13).Value = item.SalidaTemprana;
+                ws.Cell(rowIndex, 14).Value = item.HorasExtras;
+                ws.Cell(rowIndex, 15).Value = item.Excepcion;
+                ws.Cell(rowIndex, 16).Value = item.MarcasIntermedias;
+                rowIndex++;
+            }
+
+            rowIndex++;
+            ws.Cell(rowIndex, 1).Value = "Total H.E. para persona : "+person.HorasExtras+" horas.";
+            ws.Cell(rowIndex, 1).Style.Font.SetBold();
+            ws.Range(rowIndex, 1, rowIndex, 16).Merge();
+            rowIndex++;
+
+        }
+
+        ws.Columns().AdjustToContents();
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range(6, 1, Math.Max(rowIndex - 1, 6), 16).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ReporteHE.xlsx");
+    }
+
 
     [HttpGet]
     public async Task<IActionResult> EmitirReporte(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
@@ -956,6 +1457,7 @@ public class ReporteDeAsistenciaController : Controller
     }
     [HttpGet]
     public async Task<IActionResult> EmitirReporteHE(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+
     {
         var report = await _service.GetReportAsync(new AttendanceReportRequest
         {
