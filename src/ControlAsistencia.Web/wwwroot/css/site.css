@@ -272,3 +272,138 @@ body {
     font-size: 0.7rem;
   }
 }
+
+/* Dashboard Home: gráficos de dona */
+.dashboard-chart-card {
+  border: 1px solid #d9dee7;
+}
+
+.dashboard-chart-layout {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) minmax(190px, 260px) minmax(120px, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 260px;
+}
+
+.dashboard-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dashboard-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.dashboard-legend-color {
+  width: 20px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.dashboard-legend-absence,
+.dashboard-legend-late {
+  background-color: #c93636;
+}
+
+.dashboard-legend-attendance,
+.dashboard-legend-no-late {
+  background-color: #304b5a;
+}
+
+.dashboard-donut-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 190px;
+  min-height: 190px;
+}
+
+.dashboard-donut {
+  display: block;
+  max-width: 100%;
+}
+
+.dashboard-donut-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
+.dashboard-donut-value {
+  font-size: 1.65rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+.dashboard-donut-caption {
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+.dashboard-chart-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dashboard-chart-summary > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-summary-label {
+  font-size: 0.78rem;
+  color: #6c757d;
+}
+
+.dashboard-chart-summary strong {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+@media (max-width: 991.98px) {
+  .dashboard-chart-layout {
+    grid-template-columns: minmax(110px, 1fr) minmax(180px, 230px);
+  }
+
+  .dashboard-chart-summary {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-around;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .dashboard-chart-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .dashboard-chart-legend {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-chart-summary {
+    width: 100%;
+  }
+}

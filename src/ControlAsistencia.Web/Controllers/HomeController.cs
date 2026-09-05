@@ -11,13 +11,16 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly RealtimeAttendanceService _realtimeAttendanceService;
+    private readonly IHomeDailyAttendanceStatsService _dailyAttendanceStatsService;
 
     public HomeController(
         ILogger<HomeController> logger,
-        RealtimeAttendanceService realtimeAttendanceService)
+        RealtimeAttendanceService realtimeAttendanceService,
+        IHomeDailyAttendanceStatsService dailyAttendanceStatsService)
     {
         _logger = logger;
         _realtimeAttendanceService = realtimeAttendanceService;
+        _dailyAttendanceStatsService = dailyAttendanceStatsService;
     }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -34,6 +37,28 @@ public class HomeController : Controller
         }
     }
 
+    [HttpGet]
+    public async Task<IActionResult> DailyAttendanceStats(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var stats = await _dailyAttendanceStatsService.GetTodayAsync(cancellationToken);
+            return Json(stats);
+        }
+        catch (OperationCanceledException)
+        {
+            return new EmptyResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "No fue posible obtener los indicadores diarios de asistencia.");
+            return StatusCode(StatusCodes.Status500InternalServerError);
+        }
+    }
+
     public IActionResult Privacy()
     {
         return View();
@@ -42,6 +67,9 @@ public class HomeController : Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        return View(new ErrorViewModel
+        {
+            RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+        });
     }
 }

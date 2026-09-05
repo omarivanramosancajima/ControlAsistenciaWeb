@@ -43,6 +43,7 @@ builder.Services.AddScoped<IAccesoAlSistemaRepository, AccesoAlSistemaRepository
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
 builder.Services.AddScoped<ICambioDeClaveRepository, CambioDeClaveRepository>();
 builder.Services.AddScoped<IEmpresaRepository, EmpresaRepository>();
+builder.Services.AddScoped<IHomeDailyAttendanceStatsService, HomeDailyAttendanceStatsService>();
 builder.Services.AddSingleton<RealtimeAttendanceService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RealtimeAttendanceService>());
 

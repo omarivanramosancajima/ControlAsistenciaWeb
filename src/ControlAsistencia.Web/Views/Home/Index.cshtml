@@ -5,6 +5,104 @@
 }
 
 <div class="container-fluid">
+    <div class="row g-3 mb-3" id="dailyAttendanceStats">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100 dashboard-chart-card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-0">Faltas</h5>
+                            <small class="text-muted">Hoy</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="dashboard-chart-layout">
+                        <div class="dashboard-chart-legend">
+                            <div class="dashboard-legend-item">
+                                <span class="dashboard-legend-color dashboard-legend-absence"></span>
+                                <span>Ausencias</span>
+                            </div>
+                            <div class="dashboard-legend-item">
+                                <span class="dashboard-legend-color dashboard-legend-attendance"></span>
+                                <span>Asistencia</span>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-donut-wrap">
+                            <canvas id="dailyAbsencesChart"
+                                    class="dashboard-donut"
+                                    aria-label="Gráfico de faltas de hoy"></canvas>
+                            <div class="dashboard-donut-center">
+                                <span id="dailyAbsencesCenterValue" class="dashboard-donut-value">--</span>
+                                <span class="dashboard-donut-caption">personas</span>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-chart-summary">
+                            <div>
+                                <span class="dashboard-summary-label">Ausencias</span>
+                                <strong id="dailyAbsencesValue">--</strong>
+                            </div>
+                            <div>
+                                <span class="dashboard-summary-label">Asistencia</span>
+                                <strong id="dailyAttendancesValue">--</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100 dashboard-chart-card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-0">Tardanza</h5>
+                            <small class="text-muted">Hoy</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="dashboard-chart-layout">
+                        <div class="dashboard-chart-legend">
+                            <div class="dashboard-legend-item">
+                                <span class="dashboard-legend-color dashboard-legend-late"></span>
+                                <span>Tardanzas</span>
+                            </div>
+                            <div class="dashboard-legend-item">
+                                <span class="dashboard-legend-color dashboard-legend-no-late"></span>
+                                <span>Sin tardanza</span>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-donut-wrap">
+                            <canvas id="dailyLatesChart"
+                                    class="dashboard-donut"
+                                    aria-label="Gráfico de tardanzas de hoy"></canvas>
+                            <div class="dashboard-donut-center">
+                                <span id="dailyLatesCenterValue" class="dashboard-donut-value">--</span>
+                                <span class="dashboard-donut-caption">personas</span>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-chart-summary">
+                            <div>
+                                <span class="dashboard-summary-label">Tardanzas</span>
+                                <strong id="dailyLatesValue">--</strong>
+                            </div>
+                            <div>
+                                <span class="dashboard-summary-label">Sin tardanza</span>
+                                <strong id="dailyNoLatesValue">--</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row mb-3">
         <div class="col-12">
             <div class="card shadow-sm">
@@ -72,6 +170,7 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+
     <script>
         (function () {
             const body = document.getElementById("realtimeAttendanceBody");
@@ -132,8 +231,25 @@
                 .withAutomaticReconnect()
                 .build();
 
+            let refreshChartsTimer = null;
+
+            function requestChartsRefresh() {
+                // La grilla y los indicadores deben actualizarse juntos cuando
+                // llega una nueva notificación de CHECKINOUT.
+                if (refreshChartsTimer) {
+                    clearTimeout(refreshChartsTimer);
+                }
+
+                refreshChartsTimer = setTimeout(function () {
+                    if (typeof window.refreshDailyAttendanceStats === "function") {
+                        window.refreshDailyAttendanceStats();
+                    }
+                }, 250);
+            }
+
             connection.on("attendanceUpdated", function (items) {
                 renderItems(items);
+                requestChartsRefresh();
             });
 
             connection.onreconnecting(function () {
@@ -160,6 +276,222 @@
                     status.className = "badge text-bg-warning";
                     status.textContent = "Sin conexión en tiempo real";
                 });
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const endpoint = "@Url.Action("DailyAttendanceStats", "Home")";
+
+            const absencesValue = document.getElementById("dailyAbsencesValue");
+            const attendancesValue = document.getElementById("dailyAttendancesValue");
+            const latesValue = document.getElementById("dailyLatesValue");
+            const noLatesValue = document.getElementById("dailyNoLatesValue");
+            const absencesCenterValue = document.getElementById("dailyAbsencesCenterValue");
+            const latesCenterValue = document.getElementById("dailyLatesCenterValue");
+
+            const chartColors = {
+                absence: "#c93636",
+                attendance: "#304b5a",
+                late: "#c93636",
+                noLate: "#304b5a"
+            };
+
+            function percentage(value, total) {
+                if (!total) return 0;
+                return (value / total) * 100;
+            }
+
+            function formatPercentage(value) {
+                if (value === 0 || value === 100) {
+                    return value.toFixed(0);
+                }
+
+                return value.toFixed(1);
+            }
+
+            function drawDonut(canvasId, firstValue, secondValue, firstColor, secondColor) {
+                const canvas = document.getElementById(canvasId);
+                if (!canvas) return;
+
+                const container = canvas.parentElement;
+                const size = Math.max(
+                    190,
+                    Math.min(container.clientWidth || 240, 260)
+                );
+                const dpr = window.devicePixelRatio || 1;
+
+                canvas.width = size * dpr;
+                canvas.height = size * dpr;
+                canvas.style.width = size + "px";
+                canvas.style.height = size + "px";
+
+                const ctx = canvas.getContext("2d");
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.clearRect(0, 0, size, size);
+
+                const total = firstValue + secondValue;
+                const center = size / 2;
+                const outerRadius = size * 0.37;
+                const innerRadius = size * 0.22;
+
+                // Fondo neutro del anillo.
+                ctx.beginPath();
+                ctx.arc(center, center, outerRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = "#e9ecef";
+                ctx.lineWidth = outerRadius - innerRadius;
+                ctx.stroke();
+
+                if (total <= 0) {
+                    ctx.beginPath();
+                    ctx.arc(center, center, outerRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = "#adb5bd";
+                    ctx.lineWidth = outerRadius - innerRadius;
+                    ctx.stroke();
+                    return;
+                }
+
+                let startAngle = -Math.PI / 2;
+                const values = [
+                    { value: firstValue, color: firstColor },
+                    { value: secondValue, color: secondColor }
+                ];
+
+                values.forEach(function (part) {
+                    if (part.value <= 0) return;
+
+                    const angle = (part.value / total) * Math.PI * 2;
+
+                    ctx.beginPath();
+                    ctx.arc(center, center, outerRadius, startAngle, startAngle + angle);
+                    ctx.strokeStyle = part.color;
+                    ctx.lineWidth = outerRadius - innerRadius;
+                    ctx.lineCap = "butt";
+                    ctx.stroke();
+
+                    startAngle += angle;
+                });
+
+                // Etiquetas externas: número + porcentaje.
+                startAngle = -Math.PI / 2;
+
+                values.forEach(function (part) {
+                    const partPercentage = percentage(part.value, total);
+                    if (part.value <= 0) {
+                        return;
+                    }
+
+                    const angle = (part.value / total) * Math.PI * 2;
+                    const midAngle = startAngle + (angle / 2);
+
+                    const labelRadius = outerRadius + 30;
+                    const x = center + Math.cos(midAngle) * labelRadius;
+                    const y = center + Math.sin(midAngle) * labelRadius;
+
+                    const text = part.value + " (" + formatPercentage(partPercentage) + "%)";
+
+                    ctx.font = "12px Arial, sans-serif";
+                    ctx.fillStyle = part.color;
+                    ctx.textAlign = x >= center ? "left" : "right";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(text, x, y);
+
+                    startAngle += angle;
+                });
+            }
+
+            function renderCharts(data) {
+                const faltas = Number(data.faltas ?? data.Faltas ?? 0);
+                const asistencias = Number(data.asistencias ?? data.Asistencias ?? 0);
+                const tardanzas = Number(data.tardanzas ?? data.Tardanzas ?? 0);
+                const sinTardanza = Number(data.sinTardanza ?? data.SinTardanza ?? 0);
+
+                absencesValue.textContent = faltas;
+                attendancesValue.textContent = asistencias;
+                latesValue.textContent = tardanzas;
+                noLatesValue.textContent = sinTardanza;
+
+                absencesCenterValue.textContent = faltas + asistencias;
+                latesCenterValue.textContent = tardanzas + sinTardanza;
+
+                drawDonut(
+                    "dailyAbsencesChart",
+                    faltas,
+                    asistencias,
+                    chartColors.absence,
+                    chartColors.attendance
+                );
+
+                drawDonut(
+                    "dailyLatesChart",
+                    tardanzas,
+                    sinTardanza,
+                    chartColors.late,
+                    chartColors.noLate
+                );
+            }
+
+            async function loadDailyStats() {
+                try {
+                    const response = await fetch(endpoint, {
+                        method: "GET",
+                        headers: { "Accept": "application/json" },
+                        cache: "no-store"
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("No fue posible obtener los indicadores.");
+                    }
+
+                    const data = await response.json();
+                    renderCharts(data);
+                }
+                catch (error) {
+                    absencesValue.textContent = "—";
+                    attendancesValue.textContent = "—";
+                    latesValue.textContent = "—";
+                    noLatesValue.textContent = "—";
+                    absencesCenterValue.textContent = "—";
+                    latesCenterValue.textContent = "—";
+                }
+            }
+
+            // Permite que el canal de tiempo real solicite una actualización
+            // de los gráficos sin recargar la página.
+            window.refreshDailyAttendanceStats = loadDailyStats;
+
+            loadDailyStats();
+
+            window.addEventListener("resize", function () {
+                // Redibuja utilizando los valores visibles sin volver a consultar el motor.
+                const faltas = Number(absencesValue.textContent);
+                const asistencias = Number(attendancesValue.textContent);
+                const tardanzas = Number(latesValue.textContent);
+                const sinTardanza = Number(noLatesValue.textContent);
+
+                if (
+                    Number.isFinite(faltas) &&
+                    Number.isFinite(asistencias) &&
+                    Number.isFinite(tardanzas) &&
+                    Number.isFinite(sinTardanza)
+                ) {
+                    drawDonut(
+                        "dailyAbsencesChart",
+                        faltas,
+                        asistencias,
+                        chartColors.absence,
+                        chartColors.attendance
+                    );
+
+                    drawDonut(
+                        "dailyLatesChart",
+                        tardanzas,
+                        sinTardanza,
+                        chartColors.late,
+                        chartColors.noLate
+                    );
+                }
+            });
         })();
     </script>
 }
