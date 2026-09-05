@@ -539,7 +539,559 @@ public class ReporteDeAsistenciaController : Controller
 
         return File(pdf, "application/pdf", "ReporteFaltas.pdf");
     }
+    [HttpGet]
+    public async Task<IActionResult> EmitirReporteTardanza(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
 
+        var persons = report.Persons;
+        var reportFrom = report.FechaDesde;
+        var reportTo = report.FechaHasta;
+        var currentUser = User?.Identity?.IsAuthenticated == true
+            ? (User.Identity?.Name ?? string.Empty)
+            : string.Empty;
+
+        var pdf = Document.Create(container =>
+        {
+            foreach (var person in persons)
+            {
+                container.Page(page =>
+                {
+                    page.Margin(18);
+                    page.Size(PageSizes.A4.Landscape());
+                    page.DefaultTextStyle(x => x.FontSize(7.5f).FontFamily(Fonts.Arial));
+
+                    page.Content().Column(column =>
+                    {
+                        column.Spacing(4);
+                        column.Item().Text("Informe de Tardanzas del Personal").Bold().FontSize(12).AlignCenter();
+                        column.Item().Text($"Rango: {reportFrom:yyyy-MM-dd} a {reportTo:yyyy-MM-dd}").FontSize(8).AlignCenter();
+                        column.Item().Text("(Refrigerio => HV, HR ó HN: horario que descuenta 45, 60 ó 90 minutos, HS o cualquier otro: horario que no descuenta.)").FontSize(7).AlignCenter();
+                        column.Item().PaddingTop(2).Text($"RUC: {report.CompanyTaxId} - {report.CompanyName}").Bold().FontSize(8);
+                        //column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
+                        /*    
+                        column.Item().PaddingTop(2).Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(85);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellInfoLabel).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Dni);
+
+                            table.Cell().Element(CellInfoLabel).Text("Personal").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Personal);
+
+                            table.Cell().Element(CellInfoLabel).Text("Área").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Area);
+                        });
+                        */
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellHeader).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellBody).Text(person.Dni);
+
+                            table.Cell().Element(CellHeader).Text("Personal").Bold();
+                            table.Cell().Element(CellBody).Text(person.Personal);
+
+                            table.Cell().Element(CellHeader).Text("Área").Bold();
+                            table.Cell().Element(CellBody).Text(person.Area);
+                        });
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(120);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(36);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(62);
+                                columns.RelativeColumn();
+                            });
+
+                            string[] headers = { "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+                            foreach (var header in headers)
+                            {
+                                table.Cell().Element(CellHeader).AlignMiddle().Text(header).Bold().FontSize(7);
+                            }
+
+                            foreach (var row in person.Rows)
+                            {
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Fecha.ToString("dd/MM/yyyy"));
+                                table.Cell().Element(CellBody).Text($"{row.HorarioRango}");  //"{row.HorarioCodigo} {row.HorarioRango}"
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Entrada);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Salida);
+                                table.Cell().Element(c => StyledStatusCell(c, row.Falta == "Si" ? "falta" : null)).AlignCenter().Text(row.Falta);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasEfectivas);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasDePermanencia);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.TardanzaEntrada) ? "tardanza" : null)).AlignCenter().Text(row.TardanzaEntrada);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.SalidaTemprana) ? "salida-temprana" : null)).AlignCenter().Text(row.SalidaTemprana);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.HorasExtras) ? "horas-extras" : null)).AlignCenter().Text(row.HorasExtras);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.Excepcion) ? "excepcion" : null)).AlignCenter().Text(row.Excepcion);
+                                table.Cell().Element(CellBody).Text(row.MarcasIntermedias);
+                            }
+                        });
+
+                        column.Item().PaddingTop(4).Text($"Total Tardanza de {person.Personal} : "+person.Tardanza+" horas.").Bold().FontSize(8.5f);
+                    });
+
+                    page.Footer().AlignRight().Text(text =>
+                    {
+                        text.DefaultTextStyle(x => x.FontSize(7));
+                        text.Span("User: ");
+                        text.Span(string.IsNullOrWhiteSpace(currentUser) ? "N/A" : currentUser);
+                        text.Span("    Pag. ");
+                        text.CurrentPageNumber();
+                    });
+                });
+            }
+        }).GeneratePdf();
+
+        return File(pdf, "application/pdf", "ReporteTardanza.pdf");
+    }
+    [HttpGet]
+    public async Task<IActionResult> EmitirReporteSalTemp(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        var persons = report.Persons;
+        var reportFrom = report.FechaDesde;
+        var reportTo = report.FechaHasta;
+        var currentUser = User?.Identity?.IsAuthenticated == true
+            ? (User.Identity?.Name ?? string.Empty)
+            : string.Empty;
+
+        var pdf = Document.Create(container =>
+        {
+            foreach (var person in persons)
+            {
+                container.Page(page =>
+                {
+                    page.Margin(18);
+                    page.Size(PageSizes.A4.Landscape());
+                    page.DefaultTextStyle(x => x.FontSize(7.5f).FontFamily(Fonts.Arial));
+
+                    page.Content().Column(column =>
+                    {
+                        column.Spacing(4);
+                        column.Item().Text("Informe de Salidas Tempranas").Bold().FontSize(12).AlignCenter();
+                        column.Item().Text($"Rango: {reportFrom:yyyy-MM-dd} a {reportTo:yyyy-MM-dd}").FontSize(8).AlignCenter();
+                        column.Item().Text("(Refrigerio => HV, HR ó HN: horario que descuenta 45, 60 ó 90 minutos, HS o cualquier otro: horario que no descuenta.)").FontSize(7).AlignCenter();
+                        column.Item().PaddingTop(2).Text($"RUC: {report.CompanyTaxId} - {report.CompanyName}").Bold().FontSize(8);
+                        //column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
+                        /*    
+                        column.Item().PaddingTop(2).Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(85);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellInfoLabel).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Dni);
+
+                            table.Cell().Element(CellInfoLabel).Text("Personal").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Personal);
+
+                            table.Cell().Element(CellInfoLabel).Text("Área").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Area);
+                        });
+                        */
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellHeader).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellBody).Text(person.Dni);
+
+                            table.Cell().Element(CellHeader).Text("Personal").Bold();
+                            table.Cell().Element(CellBody).Text(person.Personal);
+
+                            table.Cell().Element(CellHeader).Text("Área").Bold();
+                            table.Cell().Element(CellBody).Text(person.Area);
+                        });
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(120);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(36);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(62);
+                                columns.RelativeColumn();
+                            });
+
+                            string[] headers = { "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+                            foreach (var header in headers)
+                            {
+                                table.Cell().Element(CellHeader).AlignMiddle().Text(header).Bold().FontSize(7);
+                            }
+
+                            foreach (var row in person.Rows)
+                            {
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Fecha.ToString("dd/MM/yyyy"));
+                                table.Cell().Element(CellBody).Text($"{row.HorarioRango}");  //"{row.HorarioCodigo} {row.HorarioRango}"
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Entrada);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Salida);
+                                table.Cell().Element(c => StyledStatusCell(c, row.Falta == "Si" ? "falta" : null)).AlignCenter().Text(row.Falta);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasEfectivas);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasDePermanencia);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.TardanzaEntrada) ? "tardanza" : null)).AlignCenter().Text(row.TardanzaEntrada);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.SalidaTemprana) ? "salida-temprana" : null)).AlignCenter().Text(row.SalidaTemprana);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.HorasExtras) ? "horas-extras" : null)).AlignCenter().Text(row.HorasExtras);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.Excepcion) ? "excepcion" : null)).AlignCenter().Text(row.Excepcion);
+                                table.Cell().Element(CellBody).Text(row.MarcasIntermedias);
+                            }
+                        });
+
+                        column.Item().PaddingTop(4).Text($"Total Salidas Tempranas de {person.Personal} : "+person.SalidaTemprana+" horas.").Bold().FontSize(8.5f);
+                    });
+
+                    page.Footer().AlignRight().Text(text =>
+                    {
+                        text.DefaultTextStyle(x => x.FontSize(7));
+                        text.Span("User: ");
+                        text.Span(string.IsNullOrWhiteSpace(currentUser) ? "N/A" : currentUser);
+                        text.Span("    Pag. ");
+                        text.CurrentPageNumber();
+                    });
+                });
+            }
+        }).GeneratePdf();
+
+        return File(pdf, "application/pdf", "ReporteSalTemp.pdf");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EmitirReporteExcepcion(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        var persons = report.Persons;
+        var reportFrom = report.FechaDesde;
+        var reportTo = report.FechaHasta;
+        var currentUser = User?.Identity?.IsAuthenticated == true
+            ? (User.Identity?.Name ?? string.Empty)
+            : string.Empty;
+
+        var pdf = Document.Create(container =>
+        {
+            foreach (var person in persons)
+            {
+                container.Page(page =>
+                {
+                    page.Margin(18);
+                    page.Size(PageSizes.A4.Landscape());
+                    page.DefaultTextStyle(x => x.FontSize(7.5f).FontFamily(Fonts.Arial));
+
+                    page.Content().Column(column =>
+                    {
+                        column.Spacing(4);
+                        column.Item().Text("Informe de Permisos y Justificaciones").Bold().FontSize(12).AlignCenter();
+                        column.Item().Text($"Rango: {reportFrom:yyyy-MM-dd} a {reportTo:yyyy-MM-dd}").FontSize(8).AlignCenter();
+                        column.Item().Text("(Refrigerio => HV, HR ó HN: horario que descuenta 45, 60 ó 90 minutos, HS o cualquier otro: horario que no descuenta.)").FontSize(7).AlignCenter();
+                        column.Item().PaddingTop(2).Text($"RUC: {report.CompanyTaxId} - {report.CompanyName}").Bold().FontSize(8);
+                        //column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
+                        /*    
+                        column.Item().PaddingTop(2).Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(85);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellInfoLabel).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Dni);
+
+                            table.Cell().Element(CellInfoLabel).Text("Personal").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Personal);
+
+                            table.Cell().Element(CellInfoLabel).Text("Área").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Area);
+                        });
+                        */
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellHeader).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellBody).Text(person.Dni);
+
+                            table.Cell().Element(CellHeader).Text("Personal").Bold();
+                            table.Cell().Element(CellBody).Text(person.Personal);
+
+                            table.Cell().Element(CellHeader).Text("Área").Bold();
+                            table.Cell().Element(CellBody).Text(person.Area);
+                        });
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(120);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(36);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(62);
+                                columns.RelativeColumn();
+                            });
+
+                            string[] headers = { "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+                            foreach (var header in headers)
+                            {
+                                table.Cell().Element(CellHeader).AlignMiddle().Text(header).Bold().FontSize(7);
+                            }
+
+                            foreach (var row in person.Rows)
+                            {
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Fecha.ToString("dd/MM/yyyy"));
+                                table.Cell().Element(CellBody).Text($"{row.HorarioRango}");  //"{row.HorarioCodigo} {row.HorarioRango}"
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Entrada);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Salida);
+                                table.Cell().Element(c => StyledStatusCell(c, row.Falta == "Si" ? "falta" : null)).AlignCenter().Text(row.Falta);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasEfectivas);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasDePermanencia);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.TardanzaEntrada) ? "tardanza" : null)).AlignCenter().Text(row.TardanzaEntrada);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.SalidaTemprana) ? "salida-temprana" : null)).AlignCenter().Text(row.SalidaTemprana);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.HorasExtras) ? "horas-extras" : null)).AlignCenter().Text(row.HorasExtras);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.Excepcion) ? "excepcion" : null)).AlignCenter().Text(row.Excepcion);
+                                table.Cell().Element(CellBody).Text(row.MarcasIntermedias);
+                            }
+                        });
+
+                        column.Item().PaddingTop(4).Text($"Total Permisos/Justificaciones de {person.Personal} : Horas="+person.HorasJustificadas+", Días="+person.DiasJustificados+"").Bold().FontSize(8.5f);
+                    });
+
+                    page.Footer().AlignRight().Text(text =>
+                    {
+                        text.DefaultTextStyle(x => x.FontSize(7));
+                        text.Span("User: ");
+                        text.Span(string.IsNullOrWhiteSpace(currentUser) ? "N/A" : currentUser);
+                        text.Span("    Pag. ");
+                        text.CurrentPageNumber();
+                    });
+                });
+            }
+        }).GeneratePdf();
+
+        return File(pdf, "application/pdf", "ReporteExcepcion.pdf");
+    }
+    [HttpGet]
+    public async Task<IActionResult> EmitirReporteHE(DateTime? fechaDesde, DateTime? fechaHasta, string? persona, string? area, int? areaDeptId, string? estado)
+    {
+        var report = await _service.GetReportAsync(new AttendanceReportRequest
+        {
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            Persona = persona,
+            Area = area,
+            AreaDeptId = areaDeptId,
+            Estado = estado,
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        });
+
+        var persons = report.Persons;
+        var reportFrom = report.FechaDesde;
+        var reportTo = report.FechaHasta;
+        var currentUser = User?.Identity?.IsAuthenticated == true
+            ? (User.Identity?.Name ?? string.Empty)
+            : string.Empty;
+
+        var pdf = Document.Create(container =>
+        {
+            foreach (var person in persons)
+            {
+                container.Page(page =>
+                {
+                    page.Margin(18);
+                    page.Size(PageSizes.A4.Landscape());
+                    page.DefaultTextStyle(x => x.FontSize(7.5f).FontFamily(Fonts.Arial));
+
+                    page.Content().Column(column =>
+                    {
+                        column.Spacing(4);
+                        column.Item().Text("Informe de Horas Extras").Bold().FontSize(12).AlignCenter();
+                        column.Item().Text($"Rango: {reportFrom:yyyy-MM-dd} a {reportTo:yyyy-MM-dd}").FontSize(8).AlignCenter();
+                        column.Item().Text("(Refrigerio => HV, HR ó HN: horario que descuenta 45, 60 ó 90 minutos, HS o cualquier otro: horario que no descuenta.)").FontSize(7).AlignCenter();
+                        column.Item().PaddingTop(2).Text($"RUC: {report.CompanyTaxId} - {report.CompanyName}").Bold().FontSize(8);
+                        //column.Item().Text($"{report.CompanyTaxId} - {report.CompanyName}").FontSize(8);
+                        /*    
+                        column.Item().PaddingTop(2).Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(85);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellInfoLabel).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Dni);
+
+                            table.Cell().Element(CellInfoLabel).Text("Personal").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Personal);
+
+                            table.Cell().Element(CellInfoLabel).Text("Área").Bold();
+                            table.Cell().Element(CellInfoValue).Text(person.Area);
+                        });
+                        */
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(50);
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(52);
+                                columns.RelativeColumn();
+                            });
+
+                            table.Cell().Element(CellHeader).Text("DNI/N°AC").Bold();
+                            table.Cell().Element(CellBody).Text(person.Dni);
+
+                            table.Cell().Element(CellHeader).Text("Personal").Bold();
+                            table.Cell().Element(CellBody).Text(person.Personal);
+
+                            table.Cell().Element(CellHeader).Text("Área").Bold();
+                            table.Cell().Element(CellBody).Text(person.Area);
+                        });
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(120);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(37);
+                                columns.ConstantColumn(36);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(50);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(54);
+                                columns.ConstantColumn(52);
+                                columns.ConstantColumn(62);
+                                columns.RelativeColumn();
+                            });
+
+                            string[] headers = { "Fecha", "Horario Asignado", "Entra.", "Salid.", "Falta", "Horas EFECT.", "Horas PERM.", "Tarda. Entra.", "Salida Temp.", "Horas Extras", "Excepción", "Marcas Intermedias" };
+                            foreach (var header in headers)
+                            {
+                                table.Cell().Element(CellHeader).AlignMiddle().Text(header).Bold().FontSize(7);
+                            }
+
+                            foreach (var row in person.Rows)
+                            {
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Fecha.ToString("dd/MM/yyyy"));
+                                table.Cell().Element(CellBody).Text($"{row.HorarioRango}");  //"{row.HorarioCodigo} {row.HorarioRango}"
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Entrada);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.Salida);
+                                table.Cell().Element(c => StyledStatusCell(c, row.Falta == "Si" ? "falta" : null)).AlignCenter().Text(row.Falta);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasEfectivas);
+                                table.Cell().Element(CellBody).AlignCenter().Text(row.HorasDePermanencia);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.TardanzaEntrada) ? "tardanza" : null)).AlignCenter().Text(row.TardanzaEntrada);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.SalidaTemprana) ? "salida-temprana" : null)).AlignCenter().Text(row.SalidaTemprana);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.HorasExtras) ? "horas-extras" : null)).AlignCenter().Text(row.HorasExtras);
+                                table.Cell().Element(c => StyledStatusCell(c, !string.IsNullOrWhiteSpace(row.Excepcion) ? "excepcion" : null)).AlignCenter().Text(row.Excepcion);
+                                table.Cell().Element(CellBody).Text(row.MarcasIntermedias);
+                            }
+                        });
+
+                        column.Item().PaddingTop(4).Text($"Total Horas Extras de {person.Personal} : "+person.HorasExtras+" horas.").Bold().FontSize(8.5f);
+                    });
+
+                    page.Footer().AlignRight().Text(text =>
+                    {
+                        text.DefaultTextStyle(x => x.FontSize(7));
+                        text.Span("User: ");
+                        text.Span(string.IsNullOrWhiteSpace(currentUser) ? "N/A" : currentUser);
+                        text.Span("    Pag. ");
+                        text.CurrentPageNumber();
+                    });
+                });
+            }
+        }).GeneratePdf();
+
+        return File(pdf, "application/pdf", "ReporteHE.pdf");
+    }
     private static IContainer CellHeader(IContainer container)
     {
         return container

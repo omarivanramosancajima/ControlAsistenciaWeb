@@ -15,7 +15,7 @@ namespace ControlAsistencia.Web.Services;
 /// </summary>
 public sealed class RealtimeAttendanceService : BackgroundService
 {
-    private const int MaxItems = 20;
+    private const int MaxItems = 10;
     private readonly IConfiguration _configuration;
     private readonly IHubContext<RealtimeAttendanceHub> _hubContext;
     private readonly ILogger<RealtimeAttendanceService> _logger;

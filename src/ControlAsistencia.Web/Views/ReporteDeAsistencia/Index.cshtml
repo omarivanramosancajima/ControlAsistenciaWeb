@@ -30,13 +30,21 @@
                 <a asp-action="EmitirReporteFalta" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
             }
             else if (Model.Estado=="TARDANZAS")
-            {<h1 class="h4 mb-1">...</h1>}
+            {
+                <a asp-action="EmitirReporteTardanza" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+            }
             else if (Model.Estado=="SALIDAS TEMPRANAS")
-            {<h1 class="h4 mb-1">...</h1>}
+            {
+                <a asp-action="EmitirReporteSalTemp" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+            }
             else if (Model.Estado=="PERMISOS/JUSTIFICACIONES")
-            {<h1 class="h4 mb-1">...</h1>}
+            {
+                <a asp-action="EmitirReporteExcepcion" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+            }
             else if (Model.Estado=="HORAS EXTRA")
-            {<h1 class="h4 mb-1">...s</h1>}
+            {
+                <a asp-action="EmitirReporteHE" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+            }
             else 
             {
                 <a asp-action="ExportarExcel" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
