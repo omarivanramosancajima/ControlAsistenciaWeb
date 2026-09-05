@@ -1,4 +1,4 @@
-@model ControlAsistencia.Web.Models.EmpleadoIndexViewModel
+﻿@model ControlAsistencia.Web.Models.EmpleadoIndexViewModel
 
 @{
     ViewData["Title"] = "Empleados";
@@ -12,6 +12,7 @@
                 <input type="text" name="search" value="@Model.Search" class="form-control form-control-sm" placeholder="Buscar por nombre..." maxlength="100" aria-label="Buscar por nombre" />
                 <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
             </form>
+            <button type="button" class="btn btn-primary" id="importPhotosButton">Importar fotos</button>
             <a asp-action="Create" class="btn btn-primary">Nuevo empleado</a>
         </div>
     </div>
@@ -91,3 +92,267 @@
         }
     </div>
 </div>
+
+<div class="modal fade" id="importPhotosModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false"
+     aria-labelledby="importPhotosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importPhotosModalLabel">Importar fotos</h5>
+            </div>
+            <div class="modal-body">
+                @Html.AntiForgeryToken()
+                <input type="file" id="importPhotosFolderInput"
+                       webkitdirectory directory multiple accept=".jpg,.jpeg,.gif,image/jpeg,image/gif"
+                       class="d-none" />
+
+                <div id="importPhotosInitialState">
+                    <p class="mb-0">Seleccione una carpeta para importar las fotografías de los empleados.</p>
+                </div>
+
+                <div id="importPhotosProgressState" class="d-none">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span id="importPhotosProgressText">0 / 0</span>
+                            <span id="importPhotosProgressPercent">0%</span>
+                        </div>
+                        <div class="progress" role="progressbar" aria-label="Progreso de importación">
+                            <div id="importPhotosProgressBar" class="progress-bar" style="width: 0%">0%</div>
+                        </div>
+                    </div>
+
+                    <dl class="row mb-3">
+                        <dt class="col-sm-5">Archivo actual</dt>
+                        <dd class="col-sm-7" id="importPhotosCurrentFile">-</dd>
+                        <dt class="col-sm-5">Estado</dt>
+                        <dd class="col-sm-7" id="importPhotosCurrentStatus">Preparando...</dd>
+                    </dl>
+
+                    <div id="importPhotosSummary" class="alert alert-info mb-0">
+                        Procesando...
+                    </div>
+                </div>
+
+                <div id="importPhotosResultState" class="d-none">
+                    <h6>Resultado de la importación</h6>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Total de imágenes encontradas</span>
+                            <strong id="importPhotosTotal">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Imágenes cargadas correctamente</span>
+                            <strong id="importPhotosLoaded">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Omitidas por código no encontrado</span>
+                            <strong id="importPhotosNotFound">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Omitidas por superar 60 KB</span>
+                            <strong id="importPhotosOversize">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Imágenes con error</span>
+                            <strong id="importPhotosErrors">0</strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelImportPhotosButton">Cancelar</button>
+                <button type="button" class="btn btn-primary d-none" id="selectImportPhotosFolderButton">Seleccionar carpeta</button>
+                <button type="button" class="btn btn-primary d-none" id="closeImportPhotosButton">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+    (function () {
+        const importButton = document.getElementById('importPhotosButton');
+        const modalElement = document.getElementById('importPhotosModal');
+        const folderInput = document.getElementById('importPhotosFolderInput');
+        const cancelButton = document.getElementById('cancelImportPhotosButton');
+        const selectFolderButton = document.getElementById('selectImportPhotosFolderButton');
+        const closeButton = document.getElementById('closeImportPhotosButton');
+
+        const initialState = document.getElementById('importPhotosInitialState');
+        const progressState = document.getElementById('importPhotosProgressState');
+        const resultState = document.getElementById('importPhotosResultState');
+
+        const progressText = document.getElementById('importPhotosProgressText');
+        const progressPercent = document.getElementById('importPhotosProgressPercent');
+        const progressBar = document.getElementById('importPhotosProgressBar');
+        const currentFile = document.getElementById('importPhotosCurrentFile');
+        const currentStatus = document.getElementById('importPhotosCurrentStatus');
+        const progressSummary = document.getElementById('importPhotosSummary');
+
+        const totalElement = document.getElementById('importPhotosTotal');
+        const loadedElement = document.getElementById('importPhotosLoaded');
+        const notFoundElement = document.getElementById('importPhotosNotFound');
+        const oversizeElement = document.getElementById('importPhotosOversize');
+        const errorsElement = document.getElementById('importPhotosErrors');
+
+        const modal = new bootstrap.Modal(modalElement);
+        const importPhotoUrl = '@Url.Action("ImportPhoto", "Empleados")';
+        const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+        const token = tokenElement ? tokenElement.value : '';
+
+        let importing = false;
+
+        importButton.addEventListener('click', function () {
+            resetImportDialog();
+            modal.show();
+        });
+
+        cancelButton.addEventListener('click', function () {
+            if (!importing) {
+                modal.hide();
+            }
+        });
+
+        selectFolderButton.addEventListener('click', function () {
+            folderInput.click();
+        });
+
+        closeButton.addEventListener('click', function () {
+            modal.hide();
+        });
+
+        folderInput.addEventListener('change', async function () {
+            const files = Array.from(folderInput.files || [])
+                .filter(file => /\.(jpg|jpeg|gif)$/i.test(file.name))
+                .sort((a, b) => {
+                    const aName = a.webkitRelativePath || a.name;
+                    const bName = b.webkitRelativePath || b.name;
+                    return aName.localeCompare(bName, undefined, { sensitivity: 'base', numeric: true });
+                });
+
+            if (files.length === 0) {
+                initialState.classList.remove('d-none');
+                initialState.innerHTML = '<div class="alert alert-info mb-0">La carpeta seleccionada no contiene imágenes JPG, JPEG o GIF.</div>';
+                selectFolderButton.classList.remove('d-none');
+                return;
+            }
+
+            await processFiles(files);
+        });
+
+        async function processFiles(files) {
+            importing = true;
+            initialState.classList.add('d-none');
+            progressState.classList.remove('d-none');
+            resultState.classList.add('d-none');
+            selectFolderButton.classList.add('d-none');
+            closeButton.classList.add('d-none');
+            cancelButton.classList.add('d-none');
+
+            const counters = {
+                total: files.length,
+                loaded: 0,
+                notFound: 0,
+                oversize: 0,
+                errors: 0
+            };
+
+            for (let index = 0; index < files.length; index++) {
+                const file = files[index];
+                const processed = index + 1;
+                const percent = Math.round((processed / counters.total) * 100);
+
+                currentFile.textContent = file.webkitRelativePath || file.name;
+                currentStatus.textContent = 'Procesando...';
+                updateProgress(processed, counters.total, percent);
+                updateSummary(counters);
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file, file.name);
+
+                    const response = await fetch(importPhotoUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'RequestVerificationToken': token,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const result = await response.json();
+
+                    switch (result.status) {
+                        case 'loaded':
+                            counters.loaded++;
+                            currentStatus.textContent = 'Cargada correctamente.';
+                            break;
+                        case 'notfound':
+                            counters.notFound++;
+                            currentStatus.textContent = 'Omitida: código no encontrado.';
+                            break;
+                        case 'oversize':
+                            counters.oversize++;
+                            currentStatus.textContent = 'Omitida: supera 60 KB.';
+                            break;
+                        default:
+                            counters.errors++;
+                            currentStatus.textContent = result.message || 'Error al procesar.';
+                            break;
+                    }
+                } catch {
+                    counters.errors++;
+                    currentStatus.textContent = 'Error de comunicación al procesar la imagen.';
+                }
+
+                updateSummary(counters);
+            }
+
+            importing = false;
+            progressState.classList.add('d-none');
+            resultState.classList.remove('d-none');
+            closeButton.classList.remove('d-none');
+            updateResult(counters);
+        }
+
+        function resetImportDialog() {
+            importing = false;
+            folderInput.value = '';
+            initialState.classList.remove('d-none');
+            initialState.innerHTML = '<p class="mb-0">Seleccione una carpeta para importar las fotografías de los empleados.</p>';
+            progressState.classList.add('d-none');
+            resultState.classList.add('d-none');
+            cancelButton.classList.remove('d-none');
+            selectFolderButton.classList.remove('d-none');
+            closeButton.classList.add('d-none');
+            updateProgress(0, 0, 0);
+            currentFile.textContent = '-';
+            currentStatus.textContent = 'Preparando...';
+            progressSummary.textContent = 'Procesando...';
+            updateResult({ total: 0, loaded: 0, notFound: 0, oversize: 0, errors: 0 });
+        }
+
+        function updateProgress(processed, total, percent) {
+            progressText.textContent = `${processed} / ${total}`;
+            progressPercent.textContent = `${percent}%`;
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = `${percent}%`;
+        }
+
+        function updateSummary(counters) {
+            progressSummary.textContent =
+                `Cargadas: ${counters.loaded} | Código no encontrado: ${counters.notFound} | ` +
+                `Más de 60 KB: ${counters.oversize} | Errores: ${counters.errors}`;
+        }
+
+        function updateResult(counters) {
+            totalElement.textContent = counters.total;
+            loadedElement.textContent = counters.loaded;
+            notFoundElement.textContent = counters.notFound;
+            oversizeElement.textContent = counters.oversize;
+            errorsElement.textContent = counters.errors;
+        }
+    })();
+    </script>
+}

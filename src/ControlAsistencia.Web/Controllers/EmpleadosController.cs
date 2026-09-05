@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using ControlAsistencia.Web.Models;
 using ControlAsistencia.Web.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -185,6 +185,80 @@ public class EmpleadosController : Controller
     {
         var departments = await _empleadoRepository.GetDepartmentsHierarchyAsync();
         return PartialView("_DepartmentsPopup", departments);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImportPhoto(IFormFile? file)
+    {
+        if (file is null || file.Length <= 0)
+        {
+            return Json(new
+            {
+                success = false,
+                status = "error",
+                message = "No se recibió una imagen."
+            });
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (!new[] { ".jpg", ".jpeg", ".gif" }.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            return Json(new
+            {
+                success = false,
+                status = "error",
+                message = "Formato de imagen no compatible."
+            });
+        }
+
+        const long maxPhotoSize = 60 * 1024;
+        if (file.Length > maxPhotoSize)
+        {
+            return Json(new
+            {
+                success = false,
+                status = "oversize",
+                message = "La imagen supera el tamaño máximo permitido de 60 KB."
+            });
+        }
+
+        var badgeNumber = Path.GetFileNameWithoutExtension(file.FileName)?.Trim();
+        if (string.IsNullOrWhiteSpace(badgeNumber))
+        {
+            return Json(new
+            {
+                success = false,
+                status = "notfound",
+                message = "No fue posible obtener el código del empleado desde el nombre del archivo."
+            });
+        }
+
+        try
+        {
+            var photoBytes = await ReadPhotoAsync(file);
+            var result = await _empleadoRepository.UpdatePhotoByBadgeNumberAsync(
+                badgeNumber,
+                photoBytes,
+                GetOperatorName(),
+                GetMachineAlias());
+
+            return Json(new
+            {
+                success = result.Success,
+                status = !result.Found ? "notfound" : (result.Success ? "loaded" : "error"),
+                message = result.Message
+            });
+        }
+        catch
+        {
+            return Json(new
+            {
+                success = false,
+                status = "error",
+                message = "No fue posible procesar la imagen."
+            });
+        }
     }
 
     [HttpPost]

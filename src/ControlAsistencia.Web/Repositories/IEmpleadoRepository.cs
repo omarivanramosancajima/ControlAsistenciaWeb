@@ -1,4 +1,4 @@
-using ControlAsistencia.Web.Models;
+﻿using ControlAsistencia.Web.Models;
 
 namespace ControlAsistencia.Web.Repositories;
 
@@ -11,6 +11,7 @@ public interface IEmpleadoRepository
     Task RegisterViewAuditAsync(string employeeName, string operatorName, string machineAlias);
     Task<OperationResult> CreateAsync(EmpleadoFormViewModel model, byte[]? photoBytes, string operatorName, string machineAlias);
     Task<OperationResult> UpdateAsync(EmpleadoFormViewModel model, byte[]? photoBytes, string operatorName, string machineAlias);
+    Task<(bool Found, bool Success, string Message)> UpdatePhotoByBadgeNumberAsync(string badgeNumber, byte[] photoBytes, string operatorName, string machineAlias);
     Task<DeleteDependencyResult> ValidateDeleteAsync(int userId);
     Task<OperationResult> DeleteAsync(int userId, string operatorName, string machineAlias);
     Task<IReadOnlyList<DepartmentDTO>> GetDepartmentsHierarchyAsync();

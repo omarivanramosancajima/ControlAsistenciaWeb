@@ -1,4 +1,4 @@
-using ControlAsistencia.Web.Models;
+﻿using ControlAsistencia.Web.Models;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
@@ -216,6 +216,48 @@ VALUES (@Operator, GETDATE(), @MachineAlias, 0, 'Visualiza Persona: ' + @Employe
         catch (Exception ex)
         {
             throw new InvalidOperationException("Ocurrió un error inesperado al registrar la auditoría de visualización.", ex);
+        }
+    }
+
+    public async Task<(bool Found, bool Success, string Message)> UpdatePhotoByBadgeNumberAsync(
+        string badgeNumber,
+        byte[] photoBytes,
+        string operatorName,
+        string machineAlias)
+    {
+        const string sql = @"
+UPDATE dbo.USERINFO
+SET PHOTO = @Photo
+WHERE BADGENUMBER = @BadgeNumber;
+
+IF @@ROWCOUNT = 0
+BEGIN
+    SELECT 0;
+    RETURN;
+END
+
+SELECT 1;";
+
+        try
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            var updated = await connection.ExecuteScalarAsync<int>(sql, new
+            {
+                BadgeNumber = badgeNumber,
+                Photo = photoBytes
+            });
+
+            return updated == 1
+                ? (true, true, "Fotografía cargada correctamente.")
+                : (false, false, "No se encontró un empleado con el código indicado.");
+        }
+        catch (SqlException)
+        {
+            return (true, false, "No fue posible guardar la fotografía por un error de base de datos.");
+        }
+        catch (Exception)
+        {
+            return (true, false, "No fue posible guardar la fotografía en este momento.");
         }
     }
 
