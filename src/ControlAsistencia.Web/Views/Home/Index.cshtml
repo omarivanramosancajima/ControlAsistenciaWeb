@@ -1,8 +1,165 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@model ControlAsistencia.Web.Models.HomeRealtimeAttendanceViewModel
+
+@{
+    ViewData["Title"] = "Inicio";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Monitoreo en tiempo real</h5>
+                    <span id="realtimeStatus" class="badge text-bg-secondary">Conectando...</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Fotografía</th>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Fecha/hora</th>
+                                    <th>Área</th>
+                                </tr>
+                            </thead>
+                            <tbody id="realtimeAttendanceBody">
+                                @if (Model.Items.Count == 0)
+                                {
+                                    <tr id="realtimeEmptyRow">
+                                        <td colspan="5" class="text-center text-muted py-4">
+                                            No existen registros de marcación.
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    foreach (var item in Model.Items)
+                                    {
+                                        <tr>
+                                            <td class="text-center">
+                                                @if (!string.IsNullOrWhiteSpace(item.PhotoBase64))
+                                                {
+                                                    <img src="@item.PhotoBase64"
+                                                         alt="Fotografía"
+                                                         class="employee-photo-thumb rounded-circle"
+                                                         loading="lazy" />
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Sin foto</span>
+                                                }
+                                            </td>
+                                            <td>@item.BadgeNumber</td>
+                                            <td>@item.Name</td>
+                                            <td class="text-nowrap">@item.CheckTime.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                            <td>@item.Area</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer text-muted small">
+                    Últimos 20 registros, ordenados por fecha/hora descendente.
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script>
+        (function () {
+            const body = document.getElementById("realtimeAttendanceBody");
+            const status = document.getElementById("realtimeStatus");
+
+            function escapeHtml(value) {
+                return String(value ?? "")
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;")
+                    .replaceAll('"', "&quot;")
+                    .replaceAll("'", "&#039;");
+            }
+
+            function renderItems(items) {
+                if (!Array.isArray(items) || items.length === 0) {
+                    body.innerHTML =
+                        '<tr><td colspan="5" class="text-center text-muted py-4">No existen registros de marcación.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = items.map(function (item) {
+                    const photo = item.photoBase64
+                        ? '<img src="' + escapeHtml(item.photoBase64) +
+                          '" alt="Fotografía" class="employee-photo-thumb rounded-circle" loading="lazy" />'
+                        : '<span class="text-muted">Sin foto</span>';
+
+                    const checkTime = item.checkTime
+                        ? new Date(item.checkTime).toLocaleString("es-PE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            hour12: false
+                        })
+                        : "";
+
+                    return '<tr>' +
+                        '<td class="text-center">' + photo + '</td>' +
+                        '<td>' + escapeHtml(item.badgeNumber) + '</td>' +
+                        '<td>' + escapeHtml(item.name) + '</td>' +
+                        '<td class="text-nowrap">' + escapeHtml(checkTime) + '</td>' +
+                        '<td>' + escapeHtml(item.area) + '</td>' +
+                        '</tr>';
+                }).join("");
+            }
+
+            if (typeof signalR === "undefined") {
+                status.className = "badge text-bg-warning";
+                status.textContent = "Sin conexión en tiempo real";
+                return;
+            }
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/realtime-attendance")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("attendanceUpdated", function (items) {
+                renderItems(items);
+            });
+
+            connection.onreconnecting(function () {
+                status.className = "badge text-bg-warning";
+                status.textContent = "Reconectando...";
+            });
+
+            connection.onreconnected(function () {
+                status.className = "badge text-bg-success";
+                status.textContent = "Tiempo real activo";
+            });
+
+            connection.onclose(function () {
+                status.className = "badge text-bg-secondary";
+                status.textContent = "Sin conexión";
+            });
+
+            connection.start()
+                .then(function () {
+                    status.className = "badge text-bg-success";
+                    status.textContent = "Tiempo real activo";
+                })
+                .catch(function () {
+                    status.className = "badge text-bg-warning";
+                    status.textContent = "Sin conexión en tiempo real";
+                });
+        })();
+    </script>
+}

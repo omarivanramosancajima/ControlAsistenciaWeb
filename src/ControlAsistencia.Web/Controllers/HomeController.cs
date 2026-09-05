@@ -1,7 +1,8 @@
 using System.Diagnostics;
+using ControlAsistencia.Web.Models;
+using ControlAsistencia.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ControlAsistencia.Web.Models;
 
 namespace ControlAsistencia.Web.Controllers;
 
@@ -9,15 +10,28 @@ namespace ControlAsistencia.Web.Controllers;
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
+    private readonly RealtimeAttendanceService _realtimeAttendanceService;
 
-    public HomeController(ILogger<HomeController> logger)
+    public HomeController(
+        ILogger<HomeController> logger,
+        RealtimeAttendanceService realtimeAttendanceService)
     {
         _logger = logger;
+        _realtimeAttendanceService = realtimeAttendanceService;
     }
 
-    public IActionResult Index()
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        return View();
+        try
+        {
+            var items = await _realtimeAttendanceService.GetLatestAsync(cancellationToken);
+            return View(new HomeRealtimeAttendanceViewModel { Items = items });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No fue posible cargar los últimos registros de asistencia.");
+            return View(new HomeRealtimeAttendanceViewModel());
+        }
     }
 
     public IActionResult Privacy()

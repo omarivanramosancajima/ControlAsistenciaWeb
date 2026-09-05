@@ -58,6 +58,14 @@
             "QuestPDF": {
               "target": "Package",
               "version": "[2026.7.2, )"
+            },
+            "SqlTableDependency": {
+              "target": "Package",
+              "version": "[8.5.8, )"
+            },
+            "runtime.native.System.Data.SqlClient.sni": {
+              "target": "Package",
+              "version": "[4.7.0, )"
             }
           },
           "imports": [

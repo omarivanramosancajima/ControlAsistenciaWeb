@@ -49,6 +49,7 @@ D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\M
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\QuestPDF.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\RBush.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\SixLabors.Fonts.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\TableDependency.SqlClient.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\System.Configuration.ConfigurationManager.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\System.Diagnostics.EventLog.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
@@ -89,6 +90,11 @@ D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\r
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win-x64\native\qpdf.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win-x86\native\QuestPdfSkia.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win-x86\native\qpdf.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win-arm64\native\sni.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win-x64\native\sni.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win-x86\native\sni.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\unix\lib\netstandard1.3\System.Data.SqlClient.dll
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win\lib\netstandard1.3\System.Data.SqlClient.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\bin\Debug\net8.0\runtimes\win\lib\net8.0\System.Security.Cryptography.Pkcs.dll
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.csproj.AssemblyReference.cache
@@ -99,6 +105,7 @@ D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\C
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.MvcApplicationPartsAssemblyInfo.cache
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.RazorAssemblyInfo.cache
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.RazorAssemblyInfo.cs
+D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.sourcelink.json
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\staticwebassets.build.json
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\staticwebassets.development.json
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\staticwebassets\msbuild.ControlAsistencia.Web.Microsoft.AspNetCore.StaticWebAssets.props
@@ -115,4 +122,3 @@ D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\r
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.pdb
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.genruntimeconfig.cache
 D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ref\ControlAsistencia.Web.dll
-D:\FABRICASOFT\ControlAsistenciaWeb\src\ControlAsistencia.Web\obj\Debug\net8.0\ControlAsistencia.Web.sourcelink.json

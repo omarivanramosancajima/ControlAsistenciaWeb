@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -42,6 +43,8 @@ builder.Services.AddScoped<IAccesoAlSistemaRepository, AccesoAlSistemaRepository
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
 builder.Services.AddScoped<ICambioDeClaveRepository, CambioDeClaveRepository>();
 builder.Services.AddScoped<IEmpresaRepository, EmpresaRepository>();
+builder.Services.AddSingleton<RealtimeAttendanceService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RealtimeAttendanceService>());
 
 
 var app = builder.Build();
@@ -61,6 +64,8 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHub<ControlAsistencia.Web.Hubs.RealtimeAttendanceHub>("/hubs/realtime-attendance");
 
 app.MapControllerRoute(
     name: "default",

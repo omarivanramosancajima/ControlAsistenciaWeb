@@ -24,8 +24,24 @@
         @if (!hasValidationMessage)
         {
             <div class="d-flex flex-wrap gap-2 attendance-report-actions">
+            @if (Model.Estado=="FALTAS")
+            {
+                <a asp-action="ExportarExcelFalta" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
+                <a asp-action="EmitirReporteFalta" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+            }
+            else if (Model.Estado=="TARDANZAS")
+            {<h1 class="h4 mb-1">...</h1>}
+            else if (Model.Estado=="SALIDAS TEMPRANAS")
+            {<h1 class="h4 mb-1">...</h1>}
+            else if (Model.Estado=="PERMISOS/JUSTIFICACIONES")
+            {<h1 class="h4 mb-1">...</h1>}
+            else if (Model.Estado=="HORAS EXTRA")
+            {<h1 class="h4 mb-1">...s</h1>}
+            else 
+            {
                 <a asp-action="ExportarExcel" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-success">Exportar Excel</a>
                 <a asp-action="EmitirReporte" asp-route-fechaDesde="@Model.FechaDesde.ToString("yyyy-MM-dd")" asp-route-fechaHasta="@Model.FechaHasta.ToString("yyyy-MM-dd")" asp-route-persona="@Model.Persona" asp-route-area="@Model.Area" asp-route-areaDeptId="@Model.AreaDeptId" asp-route-estado="@Model.Estado" class="btn btn-outline-danger" target="_blank" rel="noopener">Emitir Reporte</a>
+            }
             </div>
         }
     </div>
