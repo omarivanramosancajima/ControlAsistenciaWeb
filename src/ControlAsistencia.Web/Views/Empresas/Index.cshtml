@@ -18,7 +18,9 @@
                     <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Limpiar</a>
                 }
             </form>
+            <!--
             <a asp-action="Crear" class="btn btn-primary btn-sm">Nueva empresa</a>
+            //-->
         </div>
     </div>
 
@@ -74,9 +76,11 @@
                                     <a asp-action="Editar" asp-route-id="@item.CompanyId"
                                        asp-route-search="@Model.Search" asp-route-page="@Model.PageNumber"
                                        class="btn btn-outline-primary">Editar</a>
+                                       <!--
                                     <a asp-action="Eliminar" asp-route-id="@item.CompanyId"
                                        asp-route-search="@Model.Search" asp-route-page="@Model.PageNumber"
                                        class="btn btn-outline-danger">Eliminar</a>
+                                       //-->
                                 </div>
                             </td>
                         </tr>

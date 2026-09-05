@@ -28,7 +28,7 @@ public class ExcepcionRepository : IExcepcionRepository
     public async Task<(IReadOnlyList<ExcepcionDTO> Items, int TotalRecords)> GetPagedAsync(int pageNumber, int pageSize, string? search = null)
     {
         const string sql = @"
-SELECT LeaveId, LeaveName, MinUnit, Unit, ReportSymbol, Classify
+SELECT LeaveId, LeaveName, MinUnit, Unit, ReportSymbol, case when Classify=0 then 1 else 0 end classify
 FROM dbo.LeaveClass WITH (NOLOCK)
 WHERE (@Search IS NULL OR LeaveName LIKE '%' + @Search + '%')
 ORDER BY LeaveName ASC

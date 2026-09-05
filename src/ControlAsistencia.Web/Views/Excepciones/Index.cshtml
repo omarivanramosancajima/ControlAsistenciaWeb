@@ -36,8 +36,8 @@
                         <td>@item.ReportSymbol</td>
                         <td>@(item.Classify ? "SI" : "NO")</td>
                         <td class="text-nowrap">
-                            <a class="btn btn-sm btn-warning" asp-action="Edit" asp-route-id="@item.LeaveId">Editar</a>
-                            <a class="btn btn-sm btn-danger" asp-action="Delete" asp-route-id="@item.LeaveId">Eliminar</a>
+                            <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@item.LeaveId">Editar</a>
+                            <a class="btn btn-outline-danger" asp-action="Delete" asp-route-id="@item.LeaveId">Eliminar</a>
                         </td>
                     </tr>
                 }

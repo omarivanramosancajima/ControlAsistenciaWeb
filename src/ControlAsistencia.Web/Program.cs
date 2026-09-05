@@ -46,6 +46,7 @@ builder.Services.AddScoped<IEmpresaRepository, EmpresaRepository>();
 builder.Services.AddScoped<IHomeDailyAttendanceStatsService, HomeDailyAttendanceStatsService>();
 builder.Services.AddSingleton<RealtimeAttendanceService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RealtimeAttendanceService>());
+//builder.Services.AddSingleton<IQryptoService, QryptoService>();
 
 
 var app = builder.Build();
